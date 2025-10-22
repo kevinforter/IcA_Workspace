@@ -94,11 +94,72 @@
 \newpage
 
 % ============================================================================
-\chapter{Chapter 1}
-Ziel: Provisionierung von AWS-Ressourcen, Aufbau eines Docker~Swarm-Clusters, Installation von Portainer und Analyse von Skalierung und Ausfallszenarien.
+\chapter{Overview}
 
+\section{XCP-ng}
+XCP-ng steht für \textbf{Xen Cloud Platform – next generation}.  
+Es basiert auf dem \textit{Citrix Hypervisor} (vormals XenServer) und ist eine vollständig \textbf{open-source Alternative}, entwickelt von \textbf{Vates}.  
+XCP-ng wird für \textbf{Server-Virtualisierung}, \textbf{Private Clouds} und \textbf{Enterprise-Infrastrukturen} eingesetzt.  
+Es ist vollständig kompatibel mit \textbf{Xen Orchestra (XO)} für webbasiertes Management.
+
+% ----------------------------------------------------------------------------
+\section{Type of Virtualization}
+\textbf{Type:} Bare-metal / Type-1 Hypervisor  
+
+\begin{itemize}[noitemsep]
+  \item Wird direkt auf der Hardware installiert (nicht auf einem Host-Betriebssystem).
+  \item Nutzt den Xen Project Hypervisor als Virtualisierungsschicht.
+  \item Unterstützt \textbf{Full Virtualization} und \textbf{Paravirtualization} zur Performance-Optimierung.
+\end{itemize}
+
+% ----------------------------------------------------------------------------
+\section{Core Functionalities}
+\begin{itemize}[noitemsep]
+  \item \textbf{VM Management:} Erstellen, Starten, Stoppen, Klonen und Löschen von VMs.
+  \item \textbf{Snapshots:} Einfaches Erstellen und Wiederherstellen von Systemzuständen.
+  \item \textbf{Live Migration:} Verschieben laufender VMs zwischen Hosts ohne Downtime.
+  \item \textbf{Storage Management:} Unterstützung für SRs (Storage Repositories), LVM, NFS, iSCSI.
+  \item \textbf{Network Virtualization:} Virtuelle Switches, VLANs und Bonding.
+  \item \textbf{High Availability:} Automatisches Neustarten von VMs auf anderen Hosts bei Ausfall.
+  \item \textbf{Dynamic Scalability:} CPU- und RAM-Zuweisungen im laufenden Betrieb anpassbar (Hotplug).
+\end{itemize}
+
+% ----------------------------------------------------------------------------
+\section{Licensing Model}
+\begin{itemize}[noitemsep]
+  \item Open-Source und vollständig frei unter der \textbf{GPLv2}-Lizenz.
+  \item Keine Funktionsunterschiede zwischen Community- und Enterprise-Version.
+  \item Bezahlter Support über \textbf{Vates} für professionelle Umgebungen verfügbar.
+\end{itemize}
+
+% ----------------------------------------------------------------------------
+\section{Server Virtualization, Support and Performance}
+\begin{itemize}[noitemsep]
+  \item Speziell für \textbf{Server-Virtualisierung} konzipiert.
+  \item Unterstützt sowohl \textbf{Windows}- als auch \textbf{Linux}-Gastsysteme.
+  \item Ressourcenlimits abhängig von der Hardware:
+  \begin{itemize}
+    \item Bis zu \textbf{288 CPUs} pro Host
+    \item Bis zu \textbf{5\,TB RAM} pro Host
+    \item Pro VM: typischerweise bis zu \textbf{32 vCPUs} und \textbf{128\,GB+ RAM} (konfigurierbar)
+  \end{itemize}
+  \item Clusterverwaltung über \textbf{Xen Orchestra} oder \textbf{XCP-ng Center}.
+\end{itemize}
+
+% ----------------------------------------------------------------------------
+\section{Automation \& Monitoring}
+\textbf{Automation:}
+\begin{itemize}[noitemsep]
+  \item Verwaltung über \textbf{Xen Orchestra API}, CLI-Tools oder Automatisierungsplattformen wie \textbf{Ansible} oder \textbf{Terraform}.
+  \item Unterstützung für Skripting über die \texttt{xe}-Kommandozeile.
+\end{itemize}
+
+\textbf{Monitoring:}
+\begin{itemize}[noitemsep]
+  \item Integration mit \textbf{Xen Orchestra} für Dashboards und Leistungsmetriken.
+  \item Kompatibel mit \textbf{Prometheus}, \textbf{Grafana} und \textbf{Zabbix} für erweitertes Monitoring.
+  \item Echtzeitüberwachung von CPU-, RAM-, Netzwerk- und Datenträgernutzung pro VM und Host.
+\end{itemize}
 % ============================================================================
-\chapter{Chapter 2}
-\subsection{Subsection}
 
 \end{document}
