@@ -1,0 +1,104 @@
+
+%
+% FH Technikum Wien
+% !TEX encoding = UTF-8 Unicode
+%
+% Version V2.24 von 2024-12-19 otrebski
+%
+\documentclass[BMR,Seminar,ngerman,IEEE]{twbook}
+\renewcommand*{\degreecourse}{FH Technikum Wien, Bachelorstudiengang BIF\\Lehrveranstaltung BIF-VZ-5-WS2025-INFC-EN}
+
+% --- Encoding & fonts ---
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+
+% --- Graphics, figures, urls, lists, tables, code ---
+\usepackage{float}
+\usepackage{placeins}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{enumitem}
+\usepackage{listings}
+\usepackage[final]{microtype} % hilft gegen Overfull/Underfull
+\emergencystretch=2em         % sanfter Puffer für Zeilenumbruch
+
+% Screenshots hier hinein legen:
+\graphicspath{{screenshots/}}
+
+% --- Bibliography (twbook lädt biblatex via Hook, sobald inputenc geladen ist) ---
+\addbibresource{Literatur.bib}
+
+% --- Listings (inkl. YAML) ---
+\lstdefinelanguage{yaml}{
+  keywords={true,false,null,y,n},
+  comment=[l]{\#},
+  morestring=[b]',
+  morestring=[b]",
+  sensitive=false,
+  showstringspaces=false,
+  literate =    {---}{{\textcolor{gray}{---}}}3
+                {>}{{\textcolor{gray}{>}}}1
+                {|}{{\textcolor{gray}{|}}}1
+                {:}{{\textcolor{blue}{:}}}1
+                {-}{{\textcolor{gray}{-}}}1,
+}
+\lstset{
+  basicstyle=\ttfamily\small,
+  frame=single,
+  breaklines=true,
+  backgroundcolor=\color{gray!5},
+  captionpos=b
+}
+
+% --- Convenience figure macros ---
+\newcommand{\screenshotH}[3]{%
+  \begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{#1}%
+    \caption{#2}%
+    \label{fig:#3}%
+  \end{figure}%
+}
+\newcommand{\placeholderfig}[2]{%
+  \begin{figure}[htbp]
+    \centering
+    \fbox{\rule{0pt}{120pt}\rule{0.9\linewidth}{0pt}}%
+    \caption{#1}%
+    \label{fig:#2}%
+  \end{figure}%
+}
+
+% Die nachfolgenden Pakete stellen sonst nicht benötigte Features zur Verfügung
+\usepackage{blindtext}
+
+% --- Hyperref am Schluss laden (robuster) ---
+\usepackage{hyperref}
+
+%
+% Einträge für Deckblatt, Kurzfassung, etc.
+%
+\title{Hypervisor}
+\author{David Veigel \and Kevin Forter}
+\studentnumber{XXXXXXXXXXXXXXX} % ggf. beide Nummern: 12345678, 87654321
+\place{Wien}
+% \acknowledgements{\blindtext}
+
+\begin{document}
+
+\maketitle
+
+% ============================================================================
+\onecolumn
+\newpage
+
+% ============================================================================
+\chapter{Chapter 1}
+Ziel: Provisionierung von AWS-Ressourcen, Aufbau eines Docker~Swarm-Clusters, Installation von Portainer und Analyse von Skalierung und Ausfallszenarien.
+
+% ============================================================================
+\chapter{Chapter 2}
+\subsection{Subsection}
+
+\end{document}

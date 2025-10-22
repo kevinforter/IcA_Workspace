@@ -1,0 +1,1449 @@
+% !TeX program = pdflatex
+% ------------------------------------------------------------------
+% AWS Docker Swarm Workshop – Dokumentationsvorlage (LaTeX)
+% Zweispaltiges Layout mit Platzhaltern für Screenshots und Code
+% ------------------------------------------------------------------
+\documentclass[11pt,a4paper,twocolumn]{article}
+
+% ---------- Pakete ----------
+\usepackage[margin=2cm]{geometry}
+\usepackage[ngerman]{babel}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{titlesec}
+\usepackage{listings}
+\usepackage{caption}
+\usepackage{tcolorbox}
+\usepackage{longtable}
+\usepackage{multicol}
+\usepackage{eso-pic}   
+\usepackage{xcolor}
+\usepackage{tabularx}
+
+\lstdefinelanguage{yaml}{
+  keywords={true,false,null,y,n},
+  comment=[l]{\#},
+  morestring=[b]',
+  morestring=[b]",
+  sensitive=false,
+  showstringspaces=false,
+  literate =    {---}{{\textcolor{gray}{---}}}3
+                {>}{{\textcolor{gray}{>}}}1
+                {|}{{\textcolor{gray}{|}}}1
+                {:}{{\textcolor{blue}{:}}}1
+                {-}{{\textcolor{gray}{-}}}1,
+}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  frame=single,
+  breaklines=true,
+  backgroundcolor=\color{gray!5},
+  captionpos=b
+}
+
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=black,
+  urlcolor=blue,
+  citecolor=black
+}
+
+% Screenshots hier hinein legen:
+\graphicspath{{screenshots/}}
+
+% ---------- Listings (Code) ----------
+\lstdefinestyle{terminal}{
+  basicstyle=\ttfamily\footnotesize,
+  breaklines=true,
+  frame=single,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+  numbers=none,
+  backgroundcolor=\color{gray!5}
+}
+\lstset{style=terminal}
+
+% ---------- Eigene Makros ----------
+\newcommand{\placeholderfig}[2]{% caption, label
+  \begin{figure}[H]\centering
+    \fbox{\rule{0pt}{0.3\linewidth}\rule{0.9\linewidth}{0pt}}\\[2mm]
+    \caption{#1}\label{fig:#2}
+  \end{figure}}
+
+\newcommand{\screenshot}[3]{% filename, caption, label
+  \begin{figure}[H]\centering
+    \includegraphics[width=0.95\linewidth]{#1}
+    \caption{#2}\label{fig:#3}
+  \end{figure}}
+
+\newcommand{\TODO}[1]{\begin{tcolorbox}[colback=yellow!15,colframe=yellow!50!black,title=TODO]#1\end{tcolorbox}}
+
+% Abschnittsabstände kompakter
+\titlespacing*{\section}{0pt}{1.5ex plus .3ex}{0.8ex}
+\titlespacing*{\subsection}{0pt}{1.0ex plus .2ex}{0.5ex}
+
+% ----------------------------------------------------------------------------
+\begin{document}
+
+\begingroup
+\onecolumn
+\newgeometry{margin=0pt}           % kein Rand für die Titelseite
+\thispagestyle{empty}
+
+% Hintergrundgrafik auf die gesamte Seite legen
+\AddToShipoutPictureBG*{%
+  \AtPageLowerLeft{\includegraphics[width=\paperwidth,height=\paperheight]{fhtw_cover}}%
+}
+
+% Textblock oben/links etwas eingerückt (je nach Bild anpassen)
+\vspace*{3.5cm}
+\hspace*{2.4cm}
+\begin{minipage}[t]{0.75\textwidth}
+  {\color{white}
+    {\LARGE \textbf{AWS Docker Swarm Workshop – Dokumentation}}\\[8mm]
+    {\large Kurs / Modul: \textit{<eintragen>}}\\[2mm]
+    {\large Autor: \textit{<Name>} \quad Matrikel: \textit{<Nr.>}}\\[2mm]
+    {\large Datum: \today}\\[12mm]
+
+    % Optionaler Kasten auf dunklem Hintergrund:
+    \begin{tcolorbox}[colback=black!40!white,colframe=white,title=\color{white}Hinweis]
+      Diese Vorlage nutzt ein zweispaltiges Layout. Ersetzen Sie die Platzhalter, fügen Sie
+      Screenshots unter \texttt{screenshots/} hinzu und beschreiben Sie die einzelnen Schritte
+      kurz und prägnant.
+    \end{tcolorbox}
+  }
+\end{minipage}
+
+\clearpage
+\restoregeometry
+\twocolumn
+\endgroup
+
+\begin{titlepage}
+  \centering
+  {\LARGE \textbf{AWS Docker Swarm Workshop – Dokumentation}}\\[6mm]
+  {\large Kurs / Modul: \textit{<eintragen>} }\\[2mm]
+  {\large Autor: \textit{<Name>} \quad Matrikel: \textit{<Nr.>}}\\[2mm]
+  {\large Datum: \today}\\[10mm]
+  \vfill
+  \begin{tcolorbox}[colback=gray!10,colframe=gray!50!black,title=Hinweis]
+  Diese Vorlage nutzt ein zweispaltiges Layout. Ersetzen Sie die Platzhalter, fügen Sie
+  Screenshots unter \texttt{screenshots/} hinzu und beschreiben Sie die einzelnen Schritte
+  kurz und prägnant.
+  \end{tcolorbox}
+  \vfill
+\end{titlepage}
+
+% ============================================================================
+\onecolumn
+\tableofcontents
+\newpage
+\twocolumn
+
+% ============================================================================
+\section{Überblick}
+Ziel: Provisionierung von AWS-Ressourcen, Aufbau eines Docker~Swarm-Clusters, Installation von Portainer und Analyse von Skalierung und Ausfallszenarien.
+
+% ============================================================================
+\section{Provisionierung der AWS-Ressourcen}
+\subsection{VPC und Subnet}
+Neue VPC mit öffentlichem Subnet über den Assistenten im AWS-VPC-Dashboard erstellen. Security Group mit folgenden offenen Ports konfigurieren:
+
+\begin{itemize}[leftmargin=*]
+  \item 22/TCP – SSH (öffentlich)
+  \item 80/TCP – HTTP (öffentlich)
+  \item 2377/TCP, 7946/TCP/UDP, 4789/UDP – innerhalb der SG
+\end{itemize}
+
+
+\screenshot{vpc_configuration.png}{Einstellung des VPCs inklusive manueller CIDR Einstellung 10.0.0.0/16}{vpc-overview}
+
+\screenshot{subnetsettings.png}{Öffenliches Subnet mit Subnet CIDR-Block 10.0.1.0/24}{subnet-overview}
+\screenshot{auto_public_ipv4.png}{Automatische Vergabe von öffenlticher ipv4 Adresse aktiviert}{auto-public-ipv4}
+
+Die Sicherheitsgruppe musste in zwei Schritte erstellt werden, dass sie den Vorgaben entspricht.
+
+Schritt 1:
+\screenshot{create_inbound_rules.png}{Erstellung der Sicherheitsgruppe mit SSH und HTTP}{create inbound rules}
+Schritt 2:
+Erst nach dem die Sicherheitsgruppe erstellt wurde konnten wir für die Docker regeln die eigene Sicherheitsgruppe als Quelle angeben.
+\screenshot{edit_inbound_rules.png}{Anpassung der vorher erstellten Sicherheitsgruppe mit zusätzlichen Regeln für Docker}{edit inbound rules}
+
+% ============================================================================
+\section{EC2-Instanzen (Nodes)}
+
+\screenshot{create_instance.png}{Erstellung der ersten Instanz in AWS}{create instance}
+\screenshot{operating_system.png}{AMI: Ubuntu (neueste Version).}{operating system}
+\screenshot{instance_type.png}{Micro als Instance Type}{instance type}
+\screenshot{networksettings.png}{Aktivierung von \textbf{Auto-assign Public IP}.}{networksettings}
+\screenshot{userdata.png}{Einfügung von User-Data-Skript}{userdata}
+
+\begin{lstlisting}[language=bash,caption={EC2 User Data – Docker Installation}]
+#!/bin/bash
+curl -o /home/ubuntu/install-docker.sh https://get.docker.com/
+sh /home/ubuntu/install-docker.sh
+\end{lstlisting}
+
+\screenshot{instance_summary.png}{EC2 Launch – Übersicht der Einstellungen}{ec2-launch}
+
+\subsection{Validierung}
+\begin{lstlisting}[language=bash]
+ssh -i <key.pem> ubuntu@<PUBLIC_IP>
+docker --version
+\end{lstlisting}
+\screenshot{ssh_connection.png}{SSH-Verbindung und Docker-Version}{ssh-docker}
+
+% ============================================================================
+\section{Docker Swarm Setup}
+\begin{lstlisting}[language=bash]
+docker swarm init --advertise-addr <PRIVATE_IP>
+docker node ls
+\end{lstlisting}
+
+\screenshot{docker_swarm_init.png}{docker swarm init auf der ersten Instance}{docker swarm init}
+\screenshot{docker_node_ls.png}{docker swarm init auf der ersten Instance}{node-ls 1 instance}
+\screenshot{join_worker.png}{docker swarm Hinzufügen von zwei Worker}{add two worker}
+\screenshot{manager_token.png}{generieren von Manager-token}{manager token}
+\screenshot{join_manager.png}{Hinzufügen von zweiten Manager}{zweiter Manager}
+
+\screenshot{node-ls_all.png}{docker node ls mit 4 Knoten}{node-ls}
+
+% ============================================================================
+\section{Portainer Installation}
+\begin{lstlisting}[language=bash]
+curl -L https://downloads.portainer.io/ce-lts/portainer-agent-stack.yml -o portainer-agent-stack.yml
+
+docker stack deploy -c portainer-agent-stack.yml portainer
+\end{lstlisting}
+
+\screenshot{portainer_installation.png}{Portainer Installation über Kommandozeile}{Portainer Installation}
+
+\screenshot{portainer_login.png}{Erstellung eines neuen Logins für Portainer Installation}{New Login}
+\screenshot{services.png}{Angezeigte Services nach der Installation von Portainer}{Standard Services}
+
+% ============================================================================
+\section{Service-Deployment, Scale-Out und Scale-In}
+\begin{lstlisting}[language=bash]
+docker service create \
+  --name hello \
+  --replicas 3 \
+  --publish published=80,target=80 \
+  karthequian/helloworld:latest
+\end{lstlisting}
+\screenshot{portainer_create_service.png}{Service mit 3 Replicas und Port 80 erstellen}{Create Service}
+\screenshot{3_replicas.png}{Die 3 Replicas erhalten alle einen eigenen Slot}{3 Replicas}
+\screenshot{portainer_cluster_3rep.png}{Die 3 Replicas werden auf die 4 verschiednen Nodes auf dem AWS verteilt}{Verteilung 3 Replicas}
+
+\screenshot{hello_world.png}{Hello World Seite nach deploy des eben erstellen Service}{Hello World}
+
+\begin{lstlisting}[language=bash]
+docker service scale hello=10
+\end{lstlisting}
+
+\screenshot{10_replicas.png}{Die 10 Replicas werden werden nach dem Hochskallieren ebenfalls auf verschiedene Slots verteilt}{10 Replicas}
+\screenshot{portainer_cluster_10rep.png}{Die 10 Replicas werden auf die 4 verschiednen Nodes auf dem AWS verteilt}{Verteilung 10 Replicas}
+
+\screenshot{hello_world_two_containers.png}{Hello World Seite wird nun in verschiedenen Containern angezeigt}{Hello World 2 Container}
+
+\screenshot{shutdown node.png}{Node wird als "down" angzeigt, nach dem eine EC2 heruntergefahren wurde.}{Shutdown Instance}
+
+\screenshot{services_ready_status.png}{Die services, welche auf diesem Node lauften haben in den Status "ready" gewechselt. Nach einer kurzen Zeit waren sie im Status "shutdown" und neue Services waren auf den anderen Nodes verteilt.}{Status ready}
+\screenshot{portainer_down_but10.png}{Gut zu sehen, dass der Node down ist mit seinen zwei Services aber auf den restlichen 3 Nodes insgesammt 10 services laufen.}{Node down but 10 services still running}
+
+\screenshot{shutdown_services.png}{Nach dem Hochfahren des Nodes, waren in unserem fall die herunter gefahreren Nodes immer noch heruntergefahren. Dafür wurde aber die restlichen Services wieder sauber auf alle 4 Nodes verteilt.}{Still shutdown}
+
+\screenshot{portainer_scale_down.png}{Beim Scale Down der Services wurden die restlichen 3 Services auf den 4 Nodes wieder sauber verteilt. Dafür sind die vorhin heruntergefahren Services wie Zombies auf dem Node zurückgeblieben.}{Scale down}
+% ============================================================================
+\section{Kurzantworten}
+\begin{itemize}
+  \item \textbf{Skalierung des Clusters:}  
+  Skalieren Sie Ihren Cluster von 3 auf 10 Maschinen.  
+  \textit{Beobachtung:} Beim Öffnen der Hello-World-Seite wird jeweils ein anderer Container angezeigt.
+
+  \item \textbf{Wiederinbetriebnahme eines Workers:}  
+  Wenn Sie den Worker wieder online schalten, werden die Services automatisch auf alle vier Nodes verteilt.
+
+  \item \textbf{Erneute Skalierung:}  
+  Bei einer erneuten Skalierung werden die drei Services erneut gleichmäßig auf die vier Nodes verteilt.
+\end{itemize}
+
+% ============================================================================
+\section{Anhang – Wichtige Befehle}
+\begin{lstlisting}[language=bash]
+docker service ls
+docker service ps hello
+docker node ls
+docker service scale hello=10
+\end{lstlisting}
+
+% ============================================================================
+\section{Kubernetes Deployment Workshop mit Minikube}
+
+Ziel: In diesem Workshop wurde ein Kubernetes-Cluster mit \texttt{Minikube} erstellt, ein \texttt{nginx}-Deployment angelegt und verschiedene Service-Typen (ClusterIP, NodePort, LoadBalancer) getestet.
+
+% ----------------------------------------------------------------------------
+\subsection{Start und Vorbereitung}
+
+\begin{lstlisting}[language=bash,caption={Start von Minikube und Überprüfung der Umgebung}]
+minikube start
+kubectl get nodes
+\end{lstlisting}
+
+\placeholderfig{Start von Minikube mit einer einzelnen Node (Control Plane)}{minikube-start}
+
+\begin{lstlisting}[language=bash,caption={Überprüfung des Cluster-Status}]
+kubectl cluster-info
+kubectl get all
+\end{lstlisting}
+
+\placeholderfig{Minikube Clusterinformationen im Terminal}{cluster-info}
+
+% ----------------------------------------------------------------------------
+\subsection{Deployment erstellen und skalieren}
+
+\begin{lstlisting}[language=bash,caption={nginx Deployment mit einem Pod erstellen}]
+kubectl create deployment nginx --image=nginx:stable
+kubectl get deployments
+kubectl get pods
+\end{lstlisting}
+
+\placeholderfig{Erstellung des nginx Deployments}{nginx-deploy}
+
+\begin{lstlisting}[language=bash,caption={Deployment auf vier Replikas skalieren}]
+kubectl scale deployment nginx --replicas=4
+kubectl get pods -o wide
+\end{lstlisting}
+
+\placeholderfig{Vier Replikas des nginx Deployments sind aktiv}{scale-4replicas}
+
+% ----------------------------------------------------------------------------
+\subsection{Testzugriff auf einen Pod}
+
+\begin{lstlisting}[language=bash,caption={Port-Forwarding für lokalen Zugriff}]
+kubectl port-forward deployment/nginx 8080:80
+\end{lstlisting}
+
+Im Browser: \url{http://localhost:8080}
+
+\placeholderfig{Zugriff auf nginx über Port 8080 via Port-Forwarding}{portforward}
+
+% ----------------------------------------------------------------------------
+\subsection{ClusterIP Service (intern)}
+
+\begin{lstlisting}[language=bash,caption={Erstellung eines internen ClusterIP-Service}]
+kubectl expose deployment nginx \
+  --name=nginx-clusterip \
+  --type=ClusterIP \
+  --port=8080 \
+  --target-port=80
+kubectl get svc nginx-clusterip
+\end{lstlisting}
+
+\placeholderfig{Interner ClusterIP-Service für nginx Deployment}{clusterip}
+
+\begin{lstlisting}[language=bash,caption={Test im Cluster über temporären Curl-Pod}]
+kubectl run test-client --rm -it --image=curlimages/curl --restart=Never -- sh
+curl -I http://nginx-clusterip:8080
+\end{lstlisting}
+
+\placeholderfig{Erfolgreicher Curl-Test des internen ClusterIP-Service}{clusterip-test}
+
+% ----------------------------------------------------------------------------
+\subsection{NodePort Service (extern)}
+
+\begin{lstlisting}[language=bash,caption={Erstellung eines NodePort-Service}]
+kubectl expose deployment nginx \
+  --name=nginx-nodeport \
+  --type=NodePort \
+  --port=8080 \
+  --target-port=80
+kubectl get svc nginx-nodeport
+\end{lstlisting}
+
+\placeholderfig{NodePort-Service mit zugewiesenem externen Port (z.\,B. 31245)}{nodeport-created}
+
+\begin{lstlisting}[language=bash,caption={Abrufen der externen URL über Minikube}]
+minikube service nginx-nodeport --url
+\end{lstlisting}
+
+\placeholderfig{Von Minikube generierte URL für NodePort-Zugriff}{minikube-url}
+
+Zugriff im Browser oder mit \texttt{curl}:
+\begin{lstlisting}[language=bash]
+curl -I $(minikube service nginx-nodeport --url)
+\end{lstlisting}
+
+% ----------------------------------------------------------------------------
+\subsection{LoadBalancer Service (simuliert)}
+
+\begin{lstlisting}[language=bash,caption={Erstellung eines LoadBalancer-Service}]
+kubectl expose deployment nginx \
+  --name=nginx-lb \
+  --type=LoadBalancer \
+  --port=8080 \
+  --target-port=80
+\end{lstlisting}
+
+Da Minikube keinen echten Cloud Load Balancer bereitstellt, wird die Funktion über einen lokalen Tunnel simuliert.
+
+\begin{lstlisting}[language=bash,caption={Start des Minikube Tunnels (neues Terminal)}]
+minikube tunnel
+\end{lstlisting}
+
+\placeholderfig{Simulierter LoadBalancer über Minikube Tunnel}{minikube-tunnel}
+
+Prüfen der externen IP:
+\begin{lstlisting}[language=bash]
+kubectl get svc nginx-lb
+\end{lstlisting}
+
+\placeholderfig{LoadBalancer mit zugewiesener externer IP-Adresse}{loadbalancer-ip}
+
+\begin{lstlisting}[language=bash,caption={Zugriff über die externe IP}]
+curl -I http://<EXTERNAL-IP>:8080
+\end{lstlisting}
+
+\placeholderfig{Erfolgreicher Zugriff über den LoadBalancer-Service}{loadbalancer-access}
+
+% ----------------------------------------------------------------------------
+\subsection{Vergleich der Service-Typen}
+
+\begin{table*}[t]
+\centering
+\begin{tabularx}{\textwidth}{@{}p{2.8cm}p{5cm}X@{}}
+\toprule
+\textbf{Typ} & \textbf{Erreichbarkeit} & \textbf{Einsatzgebiet / Beschreibung} \\
+\midrule
+ClusterIP & Nur innerhalb des Clusters & Standardtyp; ermöglicht Kommunikation zwischen Pods oder internen Diensten. \\
+NodePort & Von außen über Node-IP und festen Port erreichbar & Zugriff über \texttt{\textless NodeIP\textgreater:\textless NodePort\textgreater} (z.\,B. für Tests). \\
+LoadBalancer & Öffentliche IP / Cloud Load Balancer & Für produktive Setups; verteilt Traffic über alle Replikas. \\
+\bottomrule
+\end{tabularx}
+\caption{Kubernetes Service-Typen}
+\end{table*}
+
+\placeholderfig{Übersicht der drei Service-Typen im Kubernetes Dashboard}{service-types}
+
+% ----------------------------------------------------------------------------
+\subsection{YAML-Spezifikationen}
+
+\begin{lstlisting}[language=yaml,caption={Deployment YAML – nginx}]
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+  labels:
+    app: nginx
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:stable
+          ports:
+            - containerPort: 80
+\end{lstlisting}
+
+\begin{lstlisting}[language=yaml,caption={Service YAML – LoadBalancer}]
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-lb
+  labels:
+    app: nginx
+spec:
+  type: LoadBalancer
+  selector:
+    app: nginx
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 80
+\end{lstlisting}
+
+\placeholderfig{Erfolgreiche Anwendung der YAML-Dateien mit \texttt{kubectl apply -f}}{yaml-apply}
+
+% ----------------------------------------------------------------------------
+\subsection{Zusammenfassung}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Cluster:} Ein lokales Kubernetes-Cluster mit Minikube wurde gestartet.
+  \item \textbf{Deployment:} Ein nginx Deployment mit vier Replikas wurde erstellt.
+  \item \textbf{Service-Typen:} ClusterIP, NodePort und LoadBalancer wurden erfolgreich getestet.
+  \item \textbf{Zugriff:} Über Port-Forwarding, NodePort und Minikube Tunnel konnte der Webserver erreicht werden.
+  \item \textbf{Fazit:} Der Workshop verdeutlicht, wie Deployments und Services in Kubernetes strukturiert sind und welche Service-Typen für interne bzw. externe Zugriffe geeignet sind.
+\end{itemize}
+\usepackage{lmodern}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{titlesec}
+\usepackage{listings}
+\usepackage{caption}
+\usepackage{tcolorbox}
+\usepackage{longtable}
+\usepackage{multicol}
+\usepackage{eso-pic}   
+\usepackage{xcolor}
+\usepackage{tabularx}
+
+\lstdefinelanguage{yaml}{
+  keywords={true,false,null,y,n},
+  comment=[l]{\#},
+  morestring=[b]',
+  morestring=[b]",
+  sensitive=false,
+  showstringspaces=false,
+  literate =    {---}{{\textcolor{gray}{---}}}3
+                {>}{{\textcolor{gray}{>}}}1
+                {|}{{\textcolor{gray}{|}}}1
+                {:}{{\textcolor{blue}{:}}}1
+                {-}{{\textcolor{gray}{-}}}1,
+}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  frame=single,
+  breaklines=true,
+  backgroundcolor=\color{gray!5},
+  captionpos=b
+}
+
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=black,
+  urlcolor=blue,
+  citecolor=black
+}
+
+% Screenshots hier hinein legen:
+\graphicspath{{screenshots/}}
+
+% ---------- Listings (Code) ----------
+\lstdefinestyle{terminal}{
+  basicstyle=\ttfamily\footnotesize,
+  breaklines=true,
+  frame=single,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+  numbers=none,
+  backgroundcolor=\color{gray!5}
+}
+\lstset{style=terminal}
+
+% ---------- Eigene Makros ----------
+\newcommand{\placeholderfig}[2]{% caption, label
+  \begin{figure}[H]\centering
+    \fbox{\rule{0pt}{0.3\linewidth}\rule{0.9\linewidth}{0pt}}\\[2mm]
+    \caption{#1}\label{fig:#2}
+  \end{figure}}
+
+\newcommand{\screenshot}[3]{% filename, caption, label
+  \begin{figure}[H]\centering
+    \includegraphics[width=0.95\linewidth]{#1}
+    \caption{#2}\label{fig:#3}
+  \end{figure}}
+
+\newcommand{\TODO}[1]{\begin{tcolorbox}[colback=yellow!15,colframe=yellow!50!black,title=TODO]#1\end{tcolorbox}}
+
+% Abschnittsabstände kompakter
+\titlespacing*{\section}{0pt}{1.5ex plus .3ex}{0.8ex}
+\titlespacing*{\subsection}{0pt}{1.0ex plus .2ex}{0.5ex}
+
+% ----------------------------------------------------------------------------
+\begin{document}
+
+\begingroup
+\onecolumn
+\newgeometry{margin=0pt}           % kein Rand für die Titelseite
+\thispagestyle{empty}
+
+% Hintergrundgrafik auf die gesamte Seite legen
+\AddToShipoutPictureBG*{%
+  \AtPageLowerLeft{\includegraphics[width=\paperwidth,height=\paperheight]{fhtw_cover}}%
+}
+
+% Textblock oben/links etwas eingerückt (je nach Bild anpassen)
+\vspace*{3.5cm}
+\hspace*{2.4cm}
+\begin{minipage}[t]{0.75\textwidth}
+  {\color{white}
+    {\LARGE \textbf{AWS Docker Swarm Workshop – Dokumentation}}\\[8mm]
+    {\large Kurs / Modul: \textit{<eintragen>}}\\[2mm]
+    {\large Autor: \textit{<Name>} \quad Matrikel: \textit{<Nr.>}}\\[2mm]
+    {\large Datum: \today}\\[12mm]
+
+    % Optionaler Kasten auf dunklem Hintergrund:
+    \begin{tcolorbox}[colback=black!40!white,colframe=white,title=\color{white}Hinweis]
+      Diese Vorlage nutzt ein zweispaltiges Layout. Ersetzen Sie die Platzhalter, fügen Sie
+      Screenshots unter \texttt{screenshots/} hinzu und beschreiben Sie die einzelnen Schritte
+      kurz und prägnant.
+    \end{tcolorbox}
+  }
+\end{minipage}
+
+\clearpage
+\restoregeometry
+\twocolumn
+\endgroup
+
+\begin{titlepage}
+  \centering
+  {\LARGE \textbf{AWS Docker Swarm Workshop – Dokumentation}}\\[6mm]
+  {\large Kurs / Modul: \textit{<eintragen>} }\\[2mm]
+  {\large Autor: \textit{<Name>} \quad Matrikel: \textit{<Nr.>}}\\[2mm]
+  {\large Datum: \today}\\[10mm]
+  \vfill
+  \begin{tcolorbox}[colback=gray!10,colframe=gray!50!black,title=Hinweis]
+  Diese Vorlage nutzt ein zweispaltiges Layout. Ersetzen Sie die Platzhalter, fügen Sie
+  Screenshots unter \texttt{screenshots/} hinzu und beschreiben Sie die einzelnen Schritte
+  kurz und prägnant.
+  \end{tcolorbox}
+  \vfill
+\end{titlepage}
+
+% ============================================================================
+\onecolumn
+\tableofcontents
+\newpage
+\twocolumn
+
+% ============================================================================
+\section{Überblick}
+Ziel: Provisionierung von AWS-Ressourcen, Aufbau eines Docker~Swarm-Clusters, Installation von Portainer und Analyse von Skalierung und Ausfallszenarien.
+
+% ============================================================================
+\section{Provisionierung der AWS-Ressourcen}
+\subsection{VPC und Subnet}
+Neue VPC mit öffentlichem Subnet über den Assistenten im AWS-VPC-Dashboard erstellen. Security Group mit folgenden offenen Ports konfigurieren:
+
+\begin{itemize}[leftmargin=*]
+  \item 22/TCP – SSH (öffentlich)
+  \item 80/TCP – HTTP (öffentlich)
+  \item 2377/TCP, 7946/TCP/UDP, 4789/UDP – innerhalb der SG
+\end{itemize}
+
+
+\screenshot{vpc_configuration.png}{Einstellung des VPCs inklusive manueller CIDR Einstellung 10.0.0.0/16}{vpc-overview}
+
+\screenshot{subnetsettings.png}{Öffenliches Subnet mit Subnet CIDR-Block 10.0.1.0/24}{subnet-overview}
+\screenshot{auto_public_ipv4.png}{Automatische Vergabe von öffenlticher ipv4 Adresse aktiviert}{auto-public-ipv4}
+
+Die Sicherheitsgruppe musste in zwei Schritte erstellt werden, dass sie den Vorgaben entspricht.
+
+Schritt 1:
+\screenshot{create_inbound_rules.png}{Erstellung der Sicherheitsgruppe mit SSH und HTTP}{create inbound rules}
+Schritt 2:
+Erst nach dem die Sicherheitsgruppe erstellt wurde konnten wir für die Docker regeln die eigene Sicherheitsgruppe als Quelle angeben.
+\screenshot{edit_inbound_rules.png}{Anpassung der vorher erstellten Sicherheitsgruppe mit zusätzlichen Regeln für Docker}{edit inbound rules}
+
+% ============================================================================
+\section{EC2-Instanzen (Nodes)}
+
+\screenshot{create_instance.png}{Erstellung der ersten Instanz in AWS}{create instance}
+\screenshot{operating_system.png}{AMI: Ubuntu (neueste Version).}{operating system}
+\screenshot{instance_type.png}{Micro als Instance Type}{instance type}
+\screenshot{networksettings.png}{Aktivierung von \textbf{Auto-assign Public IP}.}{networksettings}
+\screenshot{userdata.png}{Einfügung von User-Data-Skript}{userdata}
+
+\begin{lstlisting}[language=bash,caption={EC2 User Data – Docker Installation}]
+#!/bin/bash
+curl -o /home/ubuntu/install-docker.sh https://get.docker.com/
+sh /home/ubuntu/install-docker.sh
+\end{lstlisting}
+
+\screenshot{instance_summary.png}{EC2 Launch – Übersicht der Einstellungen}{ec2-launch}
+
+\subsection{Validierung}
+\begin{lstlisting}[language=bash]
+ssh -i <key.pem> ubuntu@<PUBLIC_IP>
+docker --version
+\end{lstlisting}
+\screenshot{ssh_connection.png}{SSH-Verbindung und Docker-Version}{ssh-docker}
+
+% ============================================================================
+\section{Docker Swarm Setup}
+\begin{lstlisting}[language=bash]
+docker swarm init --advertise-addr <PRIVATE_IP>
+docker node ls
+\end{lstlisting}
+
+\screenshot{docker_swarm_init.png}{docker swarm init auf der ersten Instance}{docker swarm init}
+\screenshot{docker_node_ls.png}{docker swarm init auf der ersten Instance}{node-ls 1 instance}
+\screenshot{join_worker.png}{docker swarm Hinzufügen von zwei Worker}{add two worker}
+\screenshot{manager_token.png}{generieren von Manager-token}{manager token}
+\screenshot{join_manager.png}{Hinzufügen von zweiten Manager}{zweiter Manager}
+
+\screenshot{node-ls_all.png}{docker node ls mit 4 Knoten}{node-ls}
+
+% ============================================================================
+\section{Portainer Installation}
+\begin{lstlisting}[language=bash]
+curl -L https://downloads.portainer.io/ce-lts/portainer-agent-stack.yml -o portainer-agent-stack.yml
+
+docker stack deploy -c portainer-agent-stack.yml portainer
+\end{lstlisting}
+
+\screenshot{portainer_installation.png}{Portainer Installation über Kommandozeile}{Portainer Installation}
+
+\screenshot{portainer_login.png}{Erstellung eines neuen Logins für Portainer Installation}{New Login}
+\screenshot{services.png}{Angezeigte Services nach der Installation von Portainer}{Standard Services}
+
+% ============================================================================
+\section{Service-Deployment, Scale-Out und Scale-In}
+\begin{lstlisting}[language=bash]
+docker service create \
+  --name hello \
+  --replicas 3 \
+  --publish published=80,target=80 \
+  karthequian/helloworld:latest
+\end{lstlisting}
+\screenshot{portainer_create_service.png}{Service mit 3 Replicas und Port 80 erstellen}{Create Service}
+\screenshot{3_replicas.png}{Die 3 Replicas erhalten alle einen eigenen Slot}{3 Replicas}
+\screenshot{portainer_cluster_3rep.png}{Die 3 Replicas werden auf die 4 verschiednen Nodes auf dem AWS verteilt}{Verteilung 3 Replicas}
+
+\screenshot{hello_world.png}{Hello World Seite nach deploy des eben erstellen Service}{Hello World}
+
+\begin{lstlisting}[language=bash]
+docker service scale hello=10
+\end{lstlisting}
+
+\screenshot{10_replicas.png}{Die 10 Replicas werden werden nach dem Hochskallieren ebenfalls auf verschiedene Slots verteilt}{10 Replicas}
+\screenshot{portainer_cluster_10rep.png}{Die 10 Replicas werden auf die 4 verschiednen Nodes auf dem AWS verteilt}{Verteilung 10 Replicas}
+
+\screenshot{hello_world_two_containers.png}{Hello World Seite wird nun in verschiedenen Containern angezeigt}{Hello World 2 Container}
+
+\screenshot{shutdown node.png}{Node wird als "down" angzeigt, nach dem eine EC2 heruntergefahren wurde.}{Shutdown Instance}
+
+\screenshot{services_ready_status.png}{Die services, welche auf diesem Node lauften haben in den Status "ready" gewechselt. Nach einer kurzen Zeit waren sie im Status "shutdown" und neue Services waren auf den anderen Nodes verteilt.}{Status ready}
+\screenshot{portainer_down_but10.png}{Gut zu sehen, dass der Node down ist mit seinen zwei Services aber auf den restlichen 3 Nodes insgesammt 10 services laufen.}{Node down but 10 services still running}
+
+\screenshot{shutdown_services.png}{Nach dem Hochfahren des Nodes, waren in unserem fall die herunter gefahreren Nodes immer noch heruntergefahren. Dafür wurde aber die restlichen Services wieder sauber auf alle 4 Nodes verteilt.}{Still shutdown}
+
+\screenshot{portainer_scale_down.png}{Beim Scale Down der Services wurden die restlichen 3 Services auf den 4 Nodes wieder sauber verteilt. Dafür sind die vorhin heruntergefahren Services wie Zombies auf dem Node zurückgeblieben.}{Scale down}
+% ============================================================================
+\section{Kurzantworten}
+\begin{itemize}
+  \item \textbf{Skalierung des Clusters:}  
+  Skalieren Sie Ihren Cluster von 3 auf 10 Maschinen.  
+  \textit{Beobachtung:} Beim Öffnen der Hello-World-Seite wird jeweils ein anderer Container angezeigt.
+
+  \item \textbf{Wiederinbetriebnahme eines Workers:}  
+  Wenn Sie den Worker wieder online schalten, werden die Services automatisch auf alle vier Nodes verteilt.
+
+  \item \textbf{Erneute Skalierung:}  
+  Bei einer erneuten Skalierung werden die drei Services erneut gleichmäßig auf die vier Nodes verteilt.
+\end{itemize}
+
+% ============================================================================
+\section{Anhang – Wichtige Befehle}
+\begin{lstlisting}[language=bash]
+docker service ls
+docker service ps hello
+docker node ls
+docker service scale hello=10
+\end{lstlisting}
+
+% ============================================================================
+\section{Kubernetes Deployment Workshop mit Minikube}
+
+Ziel: In diesem Workshop wurde ein Kubernetes-Cluster mit \texttt{Minikube} erstellt, ein \texttt{nginx}-Deployment angelegt und verschiedene Service-Typen (ClusterIP, NodePort, LoadBalancer) getestet.
+
+% ----------------------------------------------------------------------------
+\subsection{Start und Vorbereitung}
+
+\begin{lstlisting}[language=bash,caption={Start von Minikube und Überprüfung der Umgebung}]
+minikube start
+kubectl get nodes
+\end{lstlisting}
+
+\placeholderfig{Start von Minikube mit einer einzelnen Node (Control Plane)}{minikube-start}
+
+\begin{lstlisting}[language=bash,caption={Überprüfung des Cluster-Status}]
+kubectl cluster-info
+kubectl get all
+\end{lstlisting}
+
+\placeholderfig{Minikube Clusterinformationen im Terminal}{cluster-info}
+
+% ----------------------------------------------------------------------------
+\subsection{Deployment erstellen und skalieren}
+
+\begin{lstlisting}[language=bash,caption={nginx Deployment mit einem Pod erstellen}]
+kubectl create deployment nginx --image=nginx:stable
+kubectl get deployments
+kubectl get pods
+\end{lstlisting}
+
+\placeholderfig{Erstellung des nginx Deployments}{nginx-deploy}
+
+\begin{lstlisting}[language=bash,caption={Deployment auf vier Replikas skalieren}]
+kubectl scale deployment nginx --replicas=4
+kubectl get pods -o wide
+\end{lstlisting}
+
+\placeholderfig{Vier Replikas des nginx Deployments sind aktiv}{scale-4replicas}
+
+% ----------------------------------------------------------------------------
+\subsection{Testzugriff auf einen Pod}
+
+\begin{lstlisting}[language=bash,caption={Port-Forwarding für lokalen Zugriff}]
+kubectl port-forward deployment/nginx 8080:80
+\end{lstlisting}
+
+Im Browser: \url{http://localhost:8080}
+
+\placeholderfig{Zugriff auf nginx über Port 8080 via Port-Forwarding}{portforward}
+
+% ----------------------------------------------------------------------------
+\subsection{ClusterIP Service (intern)}
+
+\begin{lstlisting}[language=bash,caption={Erstellung eines internen ClusterIP-Service}]
+kubectl expose deployment nginx \
+  --name=nginx-clusterip \
+  --type=ClusterIP \
+  --port=8080 \
+  --target-port=80
+kubectl get svc nginx-clusterip
+\end{lstlisting}
+
+\placeholderfig{Interner ClusterIP-Service für nginx Deployment}{clusterip}
+
+\begin{lstlisting}[language=bash,caption={Test im Cluster über temporären Curl-Pod}]
+kubectl run test-client --rm -it --image=curlimages/curl --restart=Never -- sh
+curl -I http://nginx-clusterip:8080
+\end{lstlisting}
+
+\placeholderfig{Erfolgreicher Curl-Test des internen ClusterIP-Service}{clusterip-test}
+
+% ----------------------------------------------------------------------------
+\subsection{NodePort Service (extern)}
+
+\begin{lstlisting}[language=bash,caption={Erstellung eines NodePort-Service}]
+kubectl expose deployment nginx \
+  --name=nginx-nodeport \
+  --type=NodePort \
+  --port=8080 \
+  --target-port=80
+kubectl get svc nginx-nodeport
+\end{lstlisting}
+
+\placeholderfig{NodePort-Service mit zugewiesenem externen Port (z.\,B. 31245)}{nodeport-created}
+
+\begin{lstlisting}[language=bash,caption={Abrufen der externen URL über Minikube}]
+minikube service nginx-nodeport --url
+\end{lstlisting}
+
+\placeholderfig{Von Minikube generierte URL für NodePort-Zugriff}{minikube-url}
+
+Zugriff im Browser oder mit \texttt{curl}:
+\begin{lstlisting}[language=bash]
+curl -I $(minikube service nginx-nodeport --url)
+\end{lstlisting}
+
+% ----------------------------------------------------------------------------
+\subsection{LoadBalancer Service (simuliert)}
+
+\begin{lstlisting}[language=bash,caption={Erstellung eines LoadBalancer-Service}]
+kubectl expose deployment nginx \
+  --name=nginx-lb \
+  --type=LoadBalancer \
+  --port=8080 \
+  --target-port=80
+\end{lstlisting}
+
+Da Minikube keinen echten Cloud Load Balancer bereitstellt, wird die Funktion über einen lokalen Tunnel simuliert.
+
+\begin{lstlisting}[language=bash,caption={Start des Minikube Tunnels (neues Terminal)}]
+minikube tunnel
+\end{lstlisting}
+
+\placeholderfig{Simulierter LoadBalancer über Minikube Tunnel}{minikube-tunnel}
+
+Prüfen der externen IP:
+\begin{lstlisting}[language=bash]
+kubectl get svc nginx-lb
+\end{lstlisting}
+
+\placeholderfig{LoadBalancer mit zugewiesener externer IP-Adresse}{loadbalancer-ip}
+
+\begin{lstlisting}[language=bash,caption={Zugriff über die externe IP}]
+curl -I http://<EXTERNAL-IP>:8080
+\end{lstlisting}
+
+\placeholderfig{Erfolgreicher Zugriff über den LoadBalancer-Service}{loadbalancer-access}
+
+% ----------------------------------------------------------------------------
+\subsection{Vergleich der Service-Typen}
+
+\begin{table*}[t]
+\centering
+\begin{tabularx}{\textwidth}{@{}p{2.8cm}p{5cm}X@{}}
+\toprule
+\textbf{Typ} & \textbf{Erreichbarkeit} & \textbf{Einsatzgebiet / Beschreibung} \\
+\midrule
+ClusterIP & Nur innerhalb des Clusters & Standardtyp; ermöglicht Kommunikation zwischen Pods oder internen Diensten. \\
+NodePort & Von außen über Node-IP und festen Port erreichbar & Zugriff über \texttt{\textless NodeIP\textgreater:\textless NodePort\textgreater} (z.\,B. für Tests). \\
+LoadBalancer & Öffentliche IP / Cloud Load Balancer & Für produktive Setups; verteilt Traffic über alle Replikas. \\
+\bottomrule
+\end{tabularx}
+\caption{Kubernetes Service-Typen}
+\end{table*}
+
+\placeholderfig{Übersicht der drei Service-Typen im Kubernetes Dashboard}{service-types}
+
+% ----------------------------------------------------------------------------
+\subsection{YAML-Spezifikationen}
+
+\begin{lstlisting}[language=yaml,caption={Deployment YAML – nginx}]
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+  labels:
+    app: nginx
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:stable
+          ports:
+            - containerPort: 80
+\end{lstlisting}
+
+\begin{lstlisting}[language=yaml,caption={Service YAML – LoadBalancer}]
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-lb
+  labels:
+    app: nginx
+spec:
+  type: LoadBalancer
+  selector:
+    app: nginx
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 80
+\end{lstlisting}
+
+\placeholderfig{Erfolgreiche Anwendung der YAML-Dateien mit \texttt{kubectl apply -f}}{yaml-apply}
+
+% ----------------------------------------------------------------------------
+\subsection{Zusammenfassung}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Cluster:} Ein lokales Kubernetes-Cluster mit Minikube wurde gestartet.
+  \item \textbf{Deployment:} Ein nginx Deployment mit vier Replikas wurde erstellt.
+  \item \textbf{Service-Typen:} ClusterIP, NodePort und LoadBalancer wurden erfolgreich getestet.
+  \item \textbf{Zugriff:} Über Port-Forwarding, NodePort und Minikube Tunnel konnte der Webserver erreicht werden.
+  \item \textbf{Fazit:} Der Workshop verdeutlicht, wie Deployments und Services in Kubernetes strukturiert sind und welche Service-Typen für interne bzw. externe Zugriffe geeignet sind.
+\end{itemize}
+\usepackage{titlesec}
+\usepackage{listings}
+\usepackage{caption}
+\usepackage{tcolorbox}
+\usepackage{longtable}
+\usepackage{multicol}
+\usepackage{eso-pic}   
+\usepackage{xcolor}
+\usepackage{tabularx}
+
+\lstdefinelanguage{yaml}{
+  keywords={true,false,null,y,n},
+  comment=[l]{\#},
+  morestring=[b]',
+  morestring=[b]",
+  sensitive=false,
+  showstringspaces=false,
+  literate =    {---}{{\textcolor{gray}{---}}}3
+                {>}{{\textcolor{gray}{>}}}1
+                {|}{{\textcolor{gray}{|}}}1
+                {:}{{\textcolor{blue}{:}}}1
+                {-}{{\textcolor{gray}{-}}}1,
+}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  frame=single,
+  breaklines=true,
+  backgroundcolor=\color{gray!5},
+  captionpos=b
+}
+
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=black,
+  urlcolor=blue,
+  citecolor=black
+}
+
+% Screenshots hier hinein legen:
+\graphicspath{{screenshots/}}
+
+% ---------- Listings (Code) ----------
+\lstdefinestyle{terminal}{
+  basicstyle=\ttfamily\footnotesize,
+  breaklines=true,
+  frame=single,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+  numbers=none,
+  backgroundcolor=\color{gray!5}
+}
+\lstset{style=terminal}
+
+% ---------- Eigene Makros ----------
+\newcommand{\placeholderfig}[2]{% caption, label
+  \begin{figure}[H]\centering
+    \fbox{\rule{0pt}{0.3\linewidth}\rule{0.9\linewidth}{0pt}}\\[2mm]
+    \caption{#1}\label{fig:#2}
+  \end{figure}}
+
+\newcommand{\screenshot}[3]{% filename, caption, label
+  \begin{figure}[H]\centering
+    \includegraphics[width=0.95\linewidth]{#1}
+    \caption{#2}\label{fig:#3}
+  \end{figure}}
+
+\newcommand{\TODO}[1]{\begin{tcolorbox}[colback=yellow!15,colframe=yellow!50!black,title=TODO]#1\end{tcolorbox}}
+
+% Abschnittsabstände kompakter
+\titlespacing*{\section}{0pt}{1.5ex plus .3ex}{0.8ex}
+\titlespacing*{\subsection}{0pt}{1.0ex plus .2ex}{0.5ex}
+
+% ----------------------------------------------------------------------------
+\begin{document}
+
+\begingroup
+\onecolumn
+\newgeometry{margin=0pt}           % kein Rand für die Titelseite
+\thispagestyle{empty}
+
+% Hintergrundgrafik auf die gesamte Seite legen
+\AddToShipoutPictureBG*{%
+  \AtPageLowerLeft{\includegraphics[width=\paperwidth,height=\paperheight]{fhtw_cover}}%
+}
+
+% Textblock oben/links etwas eingerückt (je nach Bild anpassen)
+\vspace*{3.5cm}
+\hspace*{2.4cm}
+\begin{minipage}[t]{0.75\textwidth}
+  {\color{white}
+    {\LARGE \textbf{AWS Docker Swarm Workshop – Dokumentation}}\\[8mm]
+    {\large Kurs / Modul: \textit{<eintragen>}}\\[2mm]
+    {\large Autor: \textit{<Name>} \quad Matrikel: \textit{<Nr.>}}\\[2mm]
+    {\large Datum: \today}\\[12mm]
+
+    % Optionaler Kasten auf dunklem Hintergrund:
+    \begin{tcolorbox}[colback=black!40!white,colframe=white,title=\color{white}Hinweis]
+      Diese Vorlage nutzt ein zweispaltiges Layout. Ersetzen Sie die Platzhalter, fügen Sie
+      Screenshots unter \texttt{screenshots/} hinzu und beschreiben Sie die einzelnen Schritte
+      kurz und prägnant.
+    \end{tcolorbox}
+  }
+\end{minipage}
+
+\clearpage
+\restoregeometry
+\twocolumn
+\endgroup
+
+\begin{titlepage}
+  \centering
+  {\LARGE \textbf{AWS Docker Swarm Workshop – Dokumentation}}\\[6mm]
+  {\large Kurs / Modul: \textit{<eintragen>} }\\[2mm]
+  {\large Autor: \textit{<Name>} \quad Matrikel: \textit{<Nr.>}}\\[2mm]
+  {\large Datum: \today}\\[10mm]
+  \vfill
+  \begin{tcolorbox}[colback=gray!10,colframe=gray!50!black,title=Hinweis]
+  Diese Vorlage nutzt ein zweispaltiges Layout. Ersetzen Sie die Platzhalter, fügen Sie
+  Screenshots unter \texttt{screenshots/} hinzu und beschreiben Sie die einzelnen Schritte
+  kurz und prägnant.
+  \end{tcolorbox}
+  \vfill
+\end{titlepage}
+
+% ============================================================================
+\onecolumn
+\tableofcontents
+\newpage
+\twocolumn
+
+% ============================================================================
+\section{Überblick}
+Ziel: Provisionierung von AWS-Ressourcen, Aufbau eines Docker~Swarm-Clusters, Installation von Portainer und Analyse von Skalierung und Ausfallszenarien.
+
+% ============================================================================
+\section{Provisionierung der AWS-Ressourcen}
+\subsection{VPC und Subnet}
+Neue VPC mit öffentlichem Subnet über den Assistenten im AWS-VPC-Dashboard erstellen. Security Group mit folgenden offenen Ports konfigurieren:
+
+\begin{itemize}[leftmargin=*]
+  \item 22/TCP – SSH (öffentlich)
+  \item 80/TCP – HTTP (öffentlich)
+  \item 2377/TCP, 7946/TCP/UDP, 4789/UDP – innerhalb der SG
+\end{itemize}
+
+
+\screenshot{vpc_configuration.png}{Einstellung des VPCs inklusive manueller CIDR Einstellung 10.0.0.0/16}{vpc-overview}
+
+\screenshot{subnetsettings.png}{Öffenliches Subnet mit Subnet CIDR-Block 10.0.1.0/24}{subnet-overview}
+\screenshot{auto_public_ipv4.png}{Automatische Vergabe von öffenlticher ipv4 Adresse aktiviert}{auto-public-ipv4}
+
+Die Sicherheitsgruppe musste in zwei Schritte erstellt werden, dass sie den Vorgaben entspricht.
+
+Schritt 1:
+\screenshot{create_inbound_rules.png}{Erstellung der Sicherheitsgruppe mit SSH und HTTP}{create inbound rules}
+Schritt 2:
+Erst nach dem die Sicherheitsgruppe erstellt wurde konnten wir für die Docker regeln die eigene Sicherheitsgruppe als Quelle angeben.
+\screenshot{edit_inbound_rules.png}{Anpassung der vorher erstellten Sicherheitsgruppe mit zusätzlichen Regeln für Docker}{edit inbound rules}
+
+% ============================================================================
+\section{EC2-Instanzen (Nodes)}
+
+\screenshot{create_instance.png}{Erstellung der ersten Instanz in AWS}{create instance}
+\screenshot{operating_system.png}{AMI: Ubuntu (neueste Version).}{operating system}
+\screenshot{instance_type.png}{Micro als Instance Type}{instance type}
+\screenshot{networksettings.png}{Aktivierung von \textbf{Auto-assign Public IP}.}{networksettings}
+\screenshot{userdata.png}{Einfügung von User-Data-Skript}{userdata}
+
+\begin{lstlisting}[language=bash,caption={EC2 User Data – Docker Installation}]
+#!/bin/bash
+curl -o /home/ubuntu/install-docker.sh https://get.docker.com/
+sh /home/ubuntu/install-docker.sh
+\end{lstlisting}
+
+\screenshot{instance_summary.png}{EC2 Launch – Übersicht der Einstellungen}{ec2-launch}
+
+\subsection{Validierung}
+\begin{lstlisting}[language=bash]
+ssh -i <key.pem> ubuntu@<PUBLIC_IP>
+docker --version
+\end{lstlisting}
+\screenshot{ssh_connection.png}{SSH-Verbindung und Docker-Version}{ssh-docker}
+
+% ============================================================================
+\section{Docker Swarm Setup}
+\begin{lstlisting}[language=bash]
+docker swarm init --advertise-addr <PRIVATE_IP>
+docker node ls
+\end{lstlisting}
+
+\screenshot{docker_swarm_init.png}{docker swarm init auf der ersten Instance}{docker swarm init}
+\screenshot{docker_node_ls.png}{docker swarm init auf der ersten Instance}{node-ls 1 instance}
+\screenshot{join_worker.png}{docker swarm Hinzufügen von zwei Worker}{add two worker}
+\screenshot{manager_token.png}{generieren von Manager-token}{manager token}
+\screenshot{join_manager.png}{Hinzufügen von zweiten Manager}{zweiter Manager}
+
+\screenshot{node-ls_all.png}{docker node ls mit 4 Knoten}{node-ls}
+
+% ============================================================================
+\section{Portainer Installation}
+\begin{lstlisting}[language=bash]
+curl -L https://downloads.portainer.io/ce-lts/portainer-agent-stack.yml -o portainer-agent-stack.yml
+
+docker stack deploy -c portainer-agent-stack.yml portainer
+\end{lstlisting}
+
+\screenshot{portainer_installation.png}{Portainer Installation über Kommandozeile}{Portainer Installation}
+
+\screenshot{portainer_login.png}{Erstellung eines neuen Logins für Portainer Installation}{New Login}
+\screenshot{services.png}{Angezeigte Services nach der Installation von Portainer}{Standard Services}
+
+% ============================================================================
+\section{Service-Deployment, Scale-Out und Scale-In}
+\begin{lstlisting}[language=bash]
+docker service create \
+  --name hello \
+  --replicas 3 \
+  --publish published=80,target=80 \
+  karthequian/helloworld:latest
+\end{lstlisting}
+\screenshot{portainer_create_service.png}{Service mit 3 Replicas und Port 80 erstellen}{Create Service}
+\screenshot{3_replicas.png}{Die 3 Replicas erhalten alle einen eigenen Slot}{3 Replicas}
+\screenshot{portainer_cluster_3rep.png}{Die 3 Replicas werden auf die 4 verschiednen Nodes auf dem AWS verteilt}{Verteilung 3 Replicas}
+
+\screenshot{hello_world.png}{Hello World Seite nach deploy des eben erstellen Service}{Hello World}
+
+\begin{lstlisting}[language=bash]
+docker service scale hello=10
+\end{lstlisting}
+
+\screenshot{10_replicas.png}{Die 10 Replicas werden werden nach dem Hochskallieren ebenfalls auf verschiedene Slots verteilt}{10 Replicas}
+\screenshot{portainer_cluster_10rep.png}{Die 10 Replicas werden auf die 4 verschiednen Nodes auf dem AWS verteilt}{Verteilung 10 Replicas}
+
+\screenshot{hello_world_two_containers.png}{Hello World Seite wird nun in verschiedenen Containern angezeigt}{Hello World 2 Container}
+
+\screenshot{shutdown node.png}{Node wird als "down" angzeigt, nach dem eine EC2 heruntergefahren wurde.}{Shutdown Instance}
+
+\screenshot{services_ready_status.png}{Die services, welche auf diesem Node lauften haben in den Status "ready" gewechselt. Nach einer kurzen Zeit waren sie im Status "shutdown" und neue Services waren auf den anderen Nodes verteilt.}{Status ready}
+\screenshot{portainer_down_but10.png}{Gut zu sehen, dass der Node down ist mit seinen zwei Services aber auf den restlichen 3 Nodes insgesammt 10 services laufen.}{Node down but 10 services still running}
+
+\screenshot{shutdown_services.png}{Nach dem Hochfahren des Nodes, waren in unserem fall die herunter gefahreren Nodes immer noch heruntergefahren. Dafür wurde aber die restlichen Services wieder sauber auf alle 4 Nodes verteilt.}{Still shutdown}
+
+\screenshot{portainer_scale_down.png}{Beim Scale Down der Services wurden die restlichen 3 Services auf den 4 Nodes wieder sauber verteilt. Dafür sind die vorhin heruntergefahren Services wie Zombies auf dem Node zurückgeblieben.}{Scale down}
+% ============================================================================
+\section{Kurzantworten}
+\begin{itemize}
+  \item \textbf{Skalierung des Clusters:}  
+  Skalieren Sie Ihren Cluster von 3 auf 10 Maschinen.  
+  \textit{Beobachtung:} Beim Öffnen der Hello-World-Seite wird jeweils ein anderer Container angezeigt.
+
+  \item \textbf{Wiederinbetriebnahme eines Workers:}  
+  Wenn Sie den Worker wieder online schalten, werden die Services automatisch auf alle vier Nodes verteilt.
+
+  \item \textbf{Erneute Skalierung:}  
+  Bei einer erneuten Skalierung werden die drei Services erneut gleichmäßig auf die vier Nodes verteilt.
+\end{itemize}
+
+% ============================================================================
+\section{Anhang – Wichtige Befehle}
+\begin{lstlisting}[language=bash]
+docker service ls
+docker service ps hello
+docker node ls
+docker service scale hello=10
+\end{lstlisting}
+
+% ============================================================================
+\section{Kubernetes Deployment Workshop mit Minikube}
+
+Ziel: In diesem Workshop wurde ein Kubernetes-Cluster mit \texttt{Minikube} erstellt, ein \texttt{nginx}-Deployment angelegt und verschiedene Service-Typen (ClusterIP, NodePort, LoadBalancer) getestet.
+
+% ----------------------------------------------------------------------------
+\subsection{Start und Vorbereitung}
+
+\begin{lstlisting}[language=bash,caption={Start von Minikube und Überprüfung der Umgebung}]
+minikube start
+kubectl get nodes
+\end{lstlisting}
+
+\placeholderfig{Start von Minikube mit einer einzelnen Node (Control Plane)}{minikube-start}
+
+\begin{lstlisting}[language=bash,caption={Überprüfung des Cluster-Status}]
+kubectl cluster-info
+kubectl get all
+\end{lstlisting}
+
+\placeholderfig{Minikube Clusterinformationen im Terminal}{cluster-info}
+
+% ----------------------------------------------------------------------------
+\subsection{Deployment erstellen und skalieren}
+
+\begin{lstlisting}[language=bash,caption={nginx Deployment mit einem Pod erstellen}]
+kubectl create deployment nginx --image=nginx:stable
+kubectl get deployments
+kubectl get pods
+\end{lstlisting}
+
+\placeholderfig{Erstellung des nginx Deployments}{nginx-deploy}
+
+\begin{lstlisting}[language=bash,caption={Deployment auf vier Replikas skalieren}]
+kubectl scale deployment nginx --replicas=4
+kubectl get pods -o wide
+\end{lstlisting}
+
+\placeholderfig{Vier Replikas des nginx Deployments sind aktiv}{scale-4replicas}
+
+% ----------------------------------------------------------------------------
+\subsection{Testzugriff auf einen Pod}
+
+\begin{lstlisting}[language=bash,caption={Port-Forwarding für lokalen Zugriff}]
+kubectl port-forward deployment/nginx 8080:80
+\end{lstlisting}
+
+Im Browser: \url{http://localhost:8080}
+
+\placeholderfig{Zugriff auf nginx über Port 8080 via Port-Forwarding}{portforward}
+
+% ----------------------------------------------------------------------------
+\subsection{ClusterIP Service (intern)}
+
+\begin{lstlisting}[language=bash,caption={Erstellung eines internen ClusterIP-Service}]
+kubectl expose deployment nginx \
+  --name=nginx-clusterip \
+  --type=ClusterIP \
+  --port=8080 \
+  --target-port=80
+kubectl get svc nginx-clusterip
+\end{lstlisting}
+
+\placeholderfig{Interner ClusterIP-Service für nginx Deployment}{clusterip}
+
+\begin{lstlisting}[language=bash,caption={Test im Cluster über temporären Curl-Pod}]
+kubectl run test-client --rm -it --image=curlimages/curl --restart=Never -- sh
+curl -I http://nginx-clusterip:8080
+\end{lstlisting}
+
+\placeholderfig{Erfolgreicher Curl-Test des internen ClusterIP-Service}{clusterip-test}
+
+% ----------------------------------------------------------------------------
+\subsection{NodePort Service (extern)}
+
+\begin{lstlisting}[language=bash,caption={Erstellung eines NodePort-Service}]
+kubectl expose deployment nginx \
+  --name=nginx-nodeport \
+  --type=NodePort \
+  --port=8080 \
+  --target-port=80
+kubectl get svc nginx-nodeport
+\end{lstlisting}
+
+\placeholderfig{NodePort-Service mit zugewiesenem externen Port (z.\,B. 31245)}{nodeport-created}
+
+\begin{lstlisting}[language=bash,caption={Abrufen der externen URL über Minikube}]
+minikube service nginx-nodeport --url
+\end{lstlisting}
+
+\placeholderfig{Von Minikube generierte URL für NodePort-Zugriff}{minikube-url}
+
+Zugriff im Browser oder mit \texttt{curl}:
+\begin{lstlisting}[language=bash]
+curl -I $(minikube service nginx-nodeport --url)
+\end{lstlisting}
+
+% ----------------------------------------------------------------------------
+\subsection{LoadBalancer Service (simuliert)}
+
+\begin{lstlisting}[language=bash,caption={Erstellung eines LoadBalancer-Service}]
+kubectl expose deployment nginx \
+  --name=nginx-lb \
+  --type=LoadBalancer \
+  --port=8080 \
+  --target-port=80
+\end{lstlisting}
+
+Da Minikube keinen echten Cloud Load Balancer bereitstellt, wird die Funktion über einen lokalen Tunnel simuliert.
+
+\begin{lstlisting}[language=bash,caption={Start des Minikube Tunnels (neues Terminal)}]
+minikube tunnel
+\end{lstlisting}
+
+\placeholderfig{Simulierter LoadBalancer über Minikube Tunnel}{minikube-tunnel}
+
+Prüfen der externen IP:
+\begin{lstlisting}[language=bash]
+kubectl get svc nginx-lb
+\end{lstlisting}
+
+\placeholderfig{LoadBalancer mit zugewiesener externer IP-Adresse}{loadbalancer-ip}
+
+\begin{lstlisting}[language=bash,caption={Zugriff über die externe IP}]
+curl -I http://<EXTERNAL-IP>:8080
+\end{lstlisting}
+
+\placeholderfig{Erfolgreicher Zugriff über den LoadBalancer-Service}{loadbalancer-access}
+
+% ----------------------------------------------------------------------------
+\subsection{Vergleich der Service-Typen}
+
+\begin{table*}[t]
+\centering
+\begin{tabularx}{\textwidth}{@{}p{2.8cm}p{5cm}X@{}}
+\toprule
+\textbf{Typ} & \textbf{Erreichbarkeit} & \textbf{Einsatzgebiet / Beschreibung} \\
+\midrule
+ClusterIP & Nur innerhalb des Clusters & Standardtyp; ermöglicht Kommunikation zwischen Pods oder internen Diensten. \\
+NodePort & Von außen über Node-IP und festen Port erreichbar & Zugriff über \texttt{\textless NodeIP\textgreater:\textless NodePort\textgreater} (z.\,B. für Tests). \\
+LoadBalancer & Öffentliche IP / Cloud Load Balancer & Für produktive Setups; verteilt Traffic über alle Replikas. \\
+\bottomrule
+\end{tabularx}
+\caption{Kubernetes Service-Typen}
+\end{table*}
+
+\placeholderfig{Übersicht der drei Service-Typen im Kubernetes Dashboard}{service-types}
+
+% ----------------------------------------------------------------------------
+\subsection{YAML-Spezifikationen}
+
+\begin{lstlisting}[language=yaml,caption={Deployment YAML – nginx}]
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+  labels:
+    app: nginx
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:stable
+          ports:
+            - containerPort: 80
+\end{lstlisting}
+
+\begin{lstlisting}[language=yaml,caption={Service YAML – LoadBalancer}]
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-lb
+  labels:
+    app: nginx
+spec:
+  type: LoadBalancer
+  selector:
+    app: nginx
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 80
+\end{lstlisting}
+
+\placeholderfig{Erfolgreiche Anwendung der YAML-Dateien mit \texttt{kubectl apply -f}}{yaml-apply}
+
+% ----------------------------------------------------------------------------
+\subsection{Zusammenfassung}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Cluster:} Ein lokales Kubernetes-Cluster mit Minikube wurde gestartet.
+  \item \textbf{Deployment:} Ein nginx Deployment mit vier Replikas wurde erstellt.
+  \item \textbf{Service-Typen:} ClusterIP, NodePort und LoadBalancer wurden erfolgreich getestet.
+  \item \textbf{Zugriff:} Über Port-Forwarding, NodePort und Minikube Tunnel konnte der Webserver erreicht werden.
+  \item \textbf{Fazit:} Der Workshop verdeutlicht, wie Deployments und Services in Kubernetes strukturiert sind und welche Service-Typen für interne bzw. externe Zugriffe geeignet sind.
+\end{itemize}
+
+\end{document}
