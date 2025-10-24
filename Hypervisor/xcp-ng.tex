@@ -24,6 +24,8 @@
 \usepackage[final]{microtype} % hilft gegen Overfull/Underfull
 \emergencystretch=2em         % sanfter Puffer für Zeilenumbruch
 
+\usepackage{hyperref}
+
 % Screenshots hier hinein legen:
 \graphicspath{{screenshots/}}
 
@@ -81,7 +83,7 @@
 %
 \title{Hypervisor}
 \author{David Veigel \and Kevin Forter \and Rahman Ridoy}
-\studentnumber{XXXXXXXXXXXXXXX} % ggf. beide Nummern: 12345678, 87654321
+\studentnumber{2310257030, 2500257003, 2210257112} % ggf. beide Nummern: 12345678, 87654321
 \place{Wien}
 % \acknowledgements{\blindtext}
 
@@ -94,7 +96,7 @@
 \newpage
 
 % ============================================================================
-\chapter{Overview}
+\chapter{Theoretical introduction}
 
 \section{XCP-ng}
 XCP-ng steht für \textbf{Xen Cloud Platform – next generation}.  
@@ -161,5 +163,107 @@ Es ist vollständig kompatibel mit \textbf{Xen Orchestra (XO)} für webbasiertes
   \item Echtzeitüberwachung von CPU-, RAM-, Netzwerk- und Datenträgernutzung pro VM und Host.
 \end{itemize}
 % ============================================================================
+
+% ============================================================================
+\chapter{Practical experience including your findings}
+
+\section{Pre installation}
+\label{sec:pre_installation}
+
+\begin{lstlisting}[language=bash,caption={Befehlt, dass der Hypervisor in einer VirtualBox laufen kann}]
+PS C:\Program Files\Oracle\VirtualBox> ./VBoxManage modifyvm "XCP-ng" --nested-hw-virt on
+\end{lstlisting}
+
+\section{Hypervisor (als VM) installation}
+\screenshotH{keyboard.png}{Keyboard Einstellung für die VM}{keyboard}
+\FloatBarrier
+\screenshotH{network.png}{Network Einstellung für die VM}{network}
+\FloatBarrier
+\screenshotH{warning_hardware.png}{Hardware Warning für die VM, da es sich um einen Type 1 Hypervisor handelt}{warning}
+\FloatBarrier
+\screenshotH{primary_disk.png}{Vergabe von 100GB als Primary Disk}{primary}
+\FloatBarrier
+\screenshotH{dns_dhcp.png}{DNS und DHCP Einstellung für die VM}{dns and dhcp}
+\FloatBarrier
+\screenshotH{time_zone.png}{Time Zone Einstellung für die VM}{time zone}
+\FloatBarrier
+\screenshotH{time_zone_city.png}{Time Zone Einstellung für die VM}{time zone city}
+\FloatBarrier
+\screenshotH{system_time.png}{System Time Einstellung für die VM}{system time}
+\FloatBarrier
+\screenshotH{configuration_xcp.png}{Einstellung des Hypervisor (XCP-NG Version: 8.3)}{configure}
+\FloatBarrier
+
+\section{After installation}
+\screenshotH{dashboard.png}{Dashboard von XCP mittels XO Lite}{dashboard}
+\FloatBarrier
+
+\section{Create VM}
+\screenshotH{create_vm.png}{Erstellung einer VM mittels xcp}{create_vm}
+\FloatBarrier
+
+\section{Findings}
+\label{sec:findings}
+\subsection{Can the number of CPUs/Memory/… be edited live?}
+Teilweise. \\
+XCP-ng unterstützt das \textbf{Live-Anpassen bestimmter Ressourcen}:
+\begin{itemize}
+    \item \textbf{CPU-Anzahl:} Änderungen an der Anzahl der vCPUs sind nur möglich, wenn die VM ausgeschaltet ist.
+    \item \textbf{Arbeitsspeicher:} Durch die Funktion \textit{Dynamic Memory Control (DMC)} kann der Speicher während des laufenden Betriebs innerhalb definierter Minimal- und Maximalwerte angepasst werden.
+    \item \textbf{Speicher- und Netzwerkgeräte:} Diese können in der Regel im laufenden Betrieb hinzugefügt oder entfernt werden.
+\end{itemize}
+
+\noindent\textbf{Zusammenfassung:}
+\begin{itemize}
+    \item vCPU: Nur im ausgeschalteten Zustand änderbar
+    \item Arbeitsspeicher: Dynamisch anpassbar
+    \item Speicher/Netzwerk: Hot-Plug-fähig
+\end{itemize}
+\subsection{Is cloning/migrating possible?}
+Ja. \\
+XCP-ng unterstützt sowohl das \textbf{Klonen} als auch die \textbf{Migration} von virtuellen Maschinen:
+\begin{itemize}
+    \item \textbf{Klonen:} Es können sowohl vollständige Klone als auch schnelle (verknüpfte) Klone erstellt werden – entweder über \textit{Xen Orchestra} oder über die Kommandozeile (\texttt{xe}-Tool).
+    \item \textbf{Migration:} Die \textit{Live-Migration} laufender VMs zwischen XCP-ng-Hosts ist mittels \textit{XenMotion} vollständig unterstützt, sofern beide Hosts im selben Netzwerk und mit kompatiblen Speicherressourcen verbunden sind.
+    \item \textbf{Storage-Migration:} Das Verschieben von VM-Datenträgern zwischen Storage-Repositories (SRs) ist ebenfalls möglich – je nach verwendetem Speicher-Backend sogar im laufenden Betrieb.
+\end{itemize}
+\subsection{Are there monitoring interfaces?}
+Ja. \\
+XCP-ng bietet umfassende \textbf{Überwachungs- und Monitoringfunktionen}:
+\begin{itemize}
+    \item \textbf{Xen Orchestra:} Webbasierte Oberfläche mit Echtzeitüberwachung von CPU-, Speicher-, Festplatten- und Netzwerkauslastung pro VM und Host.
+    \item \textbf{XCP-ng Center:} Desktop-Anwendung mit Leistungsdiagrammen und Systemstatus-Anzeige.
+    \item \textbf{Externe Integration:} Unterstützung für Monitoring-Tools wie \textit{Prometheus}, \textit{Graphite} oder \textit{InfluxDB} zur externen Datenvisualisierung.
+\end{itemize}
+
+\noindent\textbf{Zusammenfassung:}  
+Integriertes Monitoring über Xen Orchestra und XCP-ng Center; externe Anbindung an Prometheus und Grafana ist möglich.
+
+\section{Challenges}
+
+\subsection{Probleme bei der Installation}
+Wie in Kapitel~\ref{sec:pre_installation} (\nameref{sec:pre_installation}) gezeigt, musste der dort beschriebene Befehl vor der Installation ausgeführt werden. Der Grund dafür war, dass der Hypervisor in einer VirtualBox installiert werden musste. David Veigel konnte den Hypervisor als Einziger auf seinem Laptop als virtuelle Maschine installieren, nachdem er zuvor versucht hatte, ihn auf seinem Heimserver zum Laufen zu bringen. Die übrigen Gruppenmitglieder besitzen jeweils einen Mac mit ARM-Prozessor und konnten den Hypervisor daher nicht als VM installieren.
+
+\subsection{Probleme beim Starten der VM}
+Egal, welche Maßnahmen wir ergriffen haben – leider ist es uns nicht gelungen, eine virtuelle Maschine auf dem Hypervisor zu starten. Wir vermuten, dass der Hauptgrund darin liegt, dass wir einen Typ-1-Hypervisor innerhalb einer virtuellen Maschine ausführen. Daher konnten die Punkte im Kapitel~\ref{sec:findings} (\nameref{sec:findings}) nur theoretisch beantwortet werden. Wie im untenstehenden Bild zu sehen ist, wird die VM nach jedem Startversuch als \enquote{halted} angezeigt. Auch ein manuelles Starten der Maschine war leider nicht möglich.
+\screenshotH{halted.png}{Halted VM}{halted}
+\FloatBarrier
+
+\chapter{Summary}
+Im Rahmen dieser Arbeit wurde der Open-Source-Hypervisor \textbf{XCP-ng} untersucht und praktisch erprobt.  
+Die theoretische Einführung zeigte, dass XCP-ng auf dem \textit{Citrix Hypervisor} basiert und als \textbf{Type-1-Hypervisor} direkt auf der Hardware operiert. Er bietet eine umfangreiche Palette an Funktionen für \textbf{Server-Virtualisierung}, darunter Live-Migration, Snapshots, dynamische Ressourcenanpassung und integriertes Monitoring über \textit{Xen Orchestra}. Durch seine vollständige Open-Source-Lizenzierung (GPLv2) ist er frei verfügbar und sowohl für Community- als auch Enterprise-Umgebungen geeignet.
+
+In der praktischen Umsetzung wurde der Hypervisor in einer \textbf{virtuellen Umgebung (VirtualBox)} installiert, um die Installation und Grundkonfiguration zu testen. Dabei wurden wesentliche Systemparameter wie Netzwerk, Speicher und Zeitzone konfiguriert. Die Installation verlief grundsätzlich erfolgreich, jedoch traten bei der Ausführung von virtuellen Maschinen Probleme auf:  
+Das Starten von VMs war nicht möglich, da der Hypervisor selbst innerhalb einer VM betrieben wurde (\textbf{Nested Virtualization}). Dies führte dazu, dass die Tests zur Ressourcenänderung, Migration und Laufzeitverwaltung nur theoretisch beantwortet werden konnten.
+
+Trotz dieser Einschränkung konnten wertvolle Erkenntnisse gewonnen werden:
+\begin{itemize}[noitemsep]
+    \item XCP-ng bietet ein mächtiges und zugleich benutzerfreundliches Management über \textbf{Xen Orchestra}.
+    \item \textbf{Live-Migration}, \textbf{Cloning} und \textbf{Dynamic Memory Control} sind zentrale Features für den produktiven Einsatz.
+    \item Die Integration in gängige Monitoring-Tools wie \textit{Prometheus} und \textit{Grafana} macht XCP-ng besonders attraktiv für professionelle Umgebungen.
+\end{itemize}
+
+Insgesamt zeigt das Projekt, dass XCP-ng eine leistungsfähige und stabile Alternative zu kommerziellen Virtualisierungslösungen darstellt.  
+Die praktischen Schwierigkeiten bei der Virtualisierung innerhalb einer VM verdeutlichen zugleich die technischen Grenzen von Nested-Virtualization-Setups und die Notwendigkeit einer geeigneten Hardwareumgebung für realistische Tests.
 
 \end{document}
