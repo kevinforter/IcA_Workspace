@@ -101,13 +101,13 @@ Ziel: Provisionierung von AWS-Ressourcen, Aufbau eines Docker~Swarm-Clusters, In
 \chapter{Provisionierung der AWS-Ressourcen}
 \subsection{Erstellung VPC}
 Neue VPC mit öffentlichem Subnet über den Assistenten im AWS-VPC-Dashboard erstellen. Security Group mit folgenden offenen Ports konfigurieren:
-\screenshotH{vpc_configuration.png}{Einstellung der VPC inklusive manueller CIDR-Einstellung 10.0.0.0/16}{vpc-overview}
+\placeholderfig{Einstellung der VPC inklusive manueller CIDR-Einstellung 10.0.0.0/16}{vpc-overview}
 \FloatBarrier
 
 \subsection{Erstellung Subnet}
-\screenshotH{subnetsettings.png}{Öffentliches Subnet mit Subnet-CIDR-Block 10.0.1.0/24}{subnet-overview}
+\placeholderfig{Öffentliches Subnet mit Subnet-CIDR-Block 10.0.1.0/24}{subnet-overview}
 \FloatBarrier
-\screenshotH{auto_public_ipv4.png}{Automatische Vergabe der öffentlichen IPv4-Adresse aktiviert}{auto-public-ipv4}
+\placeholderfig{Automatische Vergabe der öffentlichen IPv4-Adresse aktiviert}{auto-public-ipv4}
 \FloatBarrier
 
 \subsection{Erstellung Sicherheitsgruppe}
@@ -120,24 +120,24 @@ Neue VPC mit öffentlichem Subnet über den Assistenten im AWS-VPC-Dashboard ers
 Die Sicherheitsgruppe musste in zwei Schritten erstellt werden, damit sie den Vorgaben entspricht.
 
 Schritt 1: Zuerst musste die Sicherheitsgruppe nur mit SSH und HTTP erstellt werden
-\screenshotH{create_inbound_rules.png}{Erstellung der Sicherheitsgruppe mit SSH und HTTP}{create-inbound-rules}
+\placeholderfig{Erstellung der Sicherheitsgruppe mit SSH und HTTP}{create-inbound-rules}
 \FloatBarrier
 Schritt 2: Erst nach dem Erstellen der Sicherheitsgruppe konnten wir für die Docker-Regeln die eigene Sicherheitsgruppe als Quelle angeben.
-\screenshotH{edit_inbound_rules.png}{Anpassung der zuvor erstellten Sicherheitsgruppe mit zusätzlichen Regeln für Docker}{edit-inbound-rules}
+\placeholderfig{Anpassung der zuvor erstellten Sicherheitsgruppe mit zusätzlichen Regeln für Docker}{edit-inbound-rules}
 \FloatBarrier
 
 % ============================================================================
 \subsection{EC2-Instanzen (Nodes)}
 
-\screenshotH{create_instance.png}{Erstellung der ersten Instanz in AWS}{create-instance}
+\placeholderfig{Erstellung der ersten Instanz in AWS}{create-instance}
 \FloatBarrier
-\screenshotH{operating_system.png}{AMI: Ubuntu (neueste Version).}{operating-system}
+\placeholderfig{AMI: Ubuntu (neueste Version).}{operating-system}
 \FloatBarrier
-\screenshotH{instance_type.png}{\texttt{t2.micro} (oder vergleichbar) als Instance Type}{instance-type}
+\placeholderfig{\texttt{t2.micro} (oder vergleichbar) als Instance Type}{instance-type}
 \FloatBarrier
-\screenshotH{networksettings.png}{Aktivierung von \textbf{Auto-assign Public IP}.}{networksettings}
+\placeholderfig{Aktivierung von \textbf{Auto-assign Public IP}.}{networksettings}
 \FloatBarrier
-\screenshotH{userdata.png}{Einfügen des User-Data-Skripts}{userdata}
+\placeholderfig{Einfügen des User-Data-Skripts}{userdata}
 \FloatBarrier
 
 \begin{lstlisting}[language=bash,caption={EC2 User Data – Docker Installation}]
@@ -146,7 +146,7 @@ curl -o /home/ubuntu/install-docker.sh https://get.docker.com/
 sh /home/ubuntu/install-docker.sh
 \end{lstlisting}
 
-\screenshotH{instance_summary.png}{EC2 Launch – Übersicht der Einstellungen}{ec2-launch}
+\placeholderfig{EC2 Launch – Übersicht der Einstellungen}{ec2-launch}
 \FloatBarrier
 
 \subsection{Validierung}
@@ -154,7 +154,7 @@ sh /home/ubuntu/install-docker.sh
 ssh -i <key.pem> ubuntu@<PUBLIC_IP>
 docker --version
 \end{lstlisting}
-\screenshotH{ssh_connection.png}{SSH-Verbindung und Docker-Version}{ssh-docker}
+\placeholderfig{SSH-Verbindung und Docker-Version}{ssh-docker}
 \FloatBarrier
 
 % ============================================================================
@@ -164,18 +164,18 @@ docker swarm init --advertise-addr <PRIVATE_IP>
 docker node ls
 \end{lstlisting}
 
-\screenshotH{docker_swarm_init.png}{\texttt{docker swarm init} auf der ersten Instanz}{docker-swarm-init}
+\placeholderfig{\texttt{docker swarm init} auf der ersten Instanz}{docker-swarm-init}
 \FloatBarrier
-\screenshotH{docker_node_ls.png}{\texttt{docker node ls} auf einer Instanz}{node-ls-1-instance}
+\placeholderfig{\texttt{docker node ls} auf einer Instanz}{node-ls-1-instance}
 \FloatBarrier
-\screenshotH{join_worker.png}{Hinzufügen von zwei Workern}{add-two-worker}
+\placeholderfig{Hinzufügen von zwei Workern}{add-two-worker}
 \FloatBarrier
-\screenshotH{manager_token.png}{Generieren des Manager-Tokens}{manager-token}
+\placeholderfig{Generieren des Manager-Tokens}{manager-token}
 \FloatBarrier
-\screenshotH{join_manager.png}{Hinzufügen eines zweiten Managers}{second-manager}
+\placeholderfig{Hinzufügen eines zweiten Managers}{second-manager}
 \FloatBarrier
 
-\screenshotH{node-ls_all.png}{\texttt{docker node ls} mit 4 Knoten}{node-ls}
+\placeholderfig{\texttt{docker node ls} mit 4 Knoten}{node-ls}
 \FloatBarrier
 
 % ============================================================================
@@ -185,12 +185,12 @@ curl -L https://downloads.portainer.io/ce-lts/portainer-agent-stack.yml -o porta
 docker stack deploy -c portainer-agent-stack.yml portainer
 \end{lstlisting}
 
-\screenshotH{portainer_installation.png}{Portainer-Installation über die Kommandozeile}{portainer-installation}
+\placeholderfig{Portainer-Installation über die Kommandozeile}{portainer-installation}
 \FloatBarrier
 
-\screenshotH{portainer_login.png}{Erstellung eines neuen Logins für Portainer}{new-login}
+\placeholderfig{Erstellung eines neuen Logins für Portainer}{new-login}
 \FloatBarrier
-\screenshotH{services.png}{Angezeigte Services nach der Installation von Portainer}{standard-services}
+\placeholderfig{Angezeigte Services nach der Installation von Portainer}{standard-services}
 \FloatBarrier
 
 % ============================================================================
@@ -202,41 +202,41 @@ docker service create \
   --publish published=80,target=80 \
   karthequian/helloworld:latest
 \end{lstlisting}
-\screenshotH{portainer_create_service.png}{Service mit 3 Replikas und Port 80 erstellen}{create-service}
+\placeholderfig{Service mit 3 Replikas und Port 80 erstellen}{create-service}
 \FloatBarrier
-\screenshotH{3_replicas.png}{Die 3 Replikas erhalten jeweils einen eigenen Slot}{three-replicas}
+\placeholderfig{Die 3 Replikas erhalten jeweils einen eigenen Slot}{three-replicas}
 \FloatBarrier
-\screenshotH{portainer_cluster_3rep.png}{Die 3 Replikas werden auf die 4 verschiedenen Nodes in AWS verteilt}{distribution-3-replicas}
+\placeholderfig{Die 3 Replikas werden auf die 4 verschiedenen Nodes in AWS verteilt}{distribution-3-replicas}
 \FloatBarrier
 
-\screenshotH{hello_world.png}{Hello-World-Seite nach Deployment des Service}{hello-world}
+\placeholderfig{Hello-World-Seite nach Deployment des Service}{hello-world}
 \FloatBarrier
 
 \begin{lstlisting}[language=bash]
 docker service scale hello=10
 \end{lstlisting}
 
-\screenshotH{10_replicas.png}{Die 10 Replikas werden nach dem Hochskalieren auf verschiedene Slots verteilt}{ten-replicas}
+\placeholderfig{Die 10 Replikas werden nach dem Hochskalieren auf verschiedene Slots verteilt}{ten-replicas}
 \FloatBarrier
-\screenshotH{portainer_cluster_10rep.png}{Die 10 Replikas werden auf die 4 verschiedenen Nodes verteilt}{distribution-10-replicas}
+\placeholderfig{Die 10 Replikas werden auf die 4 verschiedenen Nodes verteilt}{distribution-10-replicas}
 \FloatBarrier
 
-\screenshotH{hello_world_two_containers.png}{Hello-World-Seite wird nun von verschiedenen Containern bedient}{hello-world-2-containers}
+\placeholderfig{Hello-World-Seite wird nun von verschiedenen Containern bedient}{hello-world-2-containers}
 \FloatBarrier
 
 % ACHTUNG: Datei ohne Leerzeichen benennen (z. B. shutdown-node.png)
-\screenshotH{shutdown node.png}{Node wird als \enquote{down} angezeigt, nachdem eine EC2 heruntergefahren wurde}{shutdown-instance}
+\placeholderfig{Node wird als \enquote{down} angezeigt, nachdem eine EC2 heruntergefahren wurde}{shutdown-instance}
 \FloatBarrier
 
-\screenshotH{services_ready_status.png}{Services auf dem betroffenen Node wechselten erst nach \enquote{ready}, dann nach \enquote{shutdown}, neue Replikas wurden auf andere Nodes verteilt}{status-ready}
+\placeholderfig{Services auf dem betroffenen Node wechselten erst nach \enquote{ready}, dann nach \enquote{shutdown}, neue Replikas wurden auf andere Nodes verteilt}{status-ready}
 \FloatBarrier
-\screenshotH{portainer_down_but10.png}{Node down mit zwei Services; auf den restlichen drei Nodes laufen insgesamt 10 Services}{node-down-10-services}
-\FloatBarrier
-
-\screenshotH{shutdown_services.png}{Nach dem Hochfahren wurden die übrigen Services wieder sauber auf alle 4 Nodes verteilt}{still-shutdown}
+\placeholderfig{Node down mit zwei Services; auf den restlichen drei Nodes laufen insgesamt 10 Services}{node-down-10-services}
 \FloatBarrier
 
-\screenshotH{portainer_scale_down.png}{Beim Scale-Down wurden die verbleibenden 3 Services erneut gleichmäßig verteilt}{scale-down}
+\placeholderfig{Nach dem Hochfahren wurden die übrigen Services wieder sauber auf alle 4 Nodes verteilt}{still-shutdown}
+\FloatBarrier
+
+\placeholderfig{Beim Scale-Down wurden die verbleibenden 3 Services erneut gleichmäßig verteilt}{scale-down}
 \FloatBarrier
 
 % ============================================================================
@@ -271,14 +271,14 @@ Ziel: In diesem Workshop wurde ein Kubernetes-Cluster mit \texttt{Minikube} erst
 curl -LO https://github.com/kubernetes/minikube/releases/latest/download/minikube-linux-amd64
 sudo install minikube-linux-amd64 /usr/local/bin/minikube && rm minikube-linux-amd64
 \end{lstlisting}
-\screenshotH{minikube_install.png}{Download und Installtion von Minikube}{minikube-install}
+\placeholderfig{Download und Installtion von Minikube}{minikube-install}
 \FloatBarrier
 
 \begin{lstlisting}[language=bash,caption={Installation von Kubectl}]
 curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
 sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
 \end{lstlisting}
-\screenshotH{kubectl_install.png}{Download und Installation von Kubectl}{kubectl-install}
+\placeholderfig{Download und Installation von Kubectl}{kubectl-install}
 \FloatBarrier
 
 % ----------------------------------------------------------------------------
@@ -287,9 +287,9 @@ sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
 minikube start
 kubectl get nodes
 \end{lstlisting}
-\screenshotH{minikube_start_2mb.png}{Start von Minikube mit einer einzelnen Node (2GB Ram da sonst alles gebraucht wird)}{minikube-start}
+\placeholderfig{Start von Minikube mit einer einzelnen Node (2GB Ram da sonst alles gebraucht wird)}{minikube-start}
 \FloatBarrier
-\screenshotH{minikube_get_nodes.png}{Alle laufenden Notes}{minikube-get-nodes}
+\placeholderfig{Alle laufenden Notes}{minikube-get-nodes}
 \FloatBarrier
 
 % ----------------------------------------------------------------------------
@@ -299,18 +299,18 @@ kubectl create deployment nginx --image=nginx:stable
 kubectl get deployments
 kubectl get pods
 \end{lstlisting}
-\screenshotH{minikube_create_deployment.png}{Erstellung des nginx-Deployments}{nginx-deploy}
+\placeholderfig{Erstellung des nginx-Deployments}{nginx-deploy}
 \FloatBarrier
-\screenshotH{minikube_get_deployments.png}{Anzeigen des erstellten Deployments}{get-deployments}
+\placeholderfig{Anzeigen des erstellten Deployments}{get-deployments}
 \FloatBarrier
 
 \begin{lstlisting}[language=bash,caption={Deployment auf vier Replikas skalieren}]
 kubectl scale deployment nginx --replicas=4
 kubectl get pods
 \end{lstlisting}
-\screenshotH{minikube_scale_deployment.png}{Vier Replikas des nginx-Deployments sind aktiv}{scale-4replicas}
+\placeholderfig{Vier Replikas des nginx-Deployments sind aktiv}{scale-4replicas}
 \FloatBarrier
-\screenshotH{minikube_get_pods.png}{Anzeigen der erstellten Pods}{nginx-get-pods}
+\placeholderfig{Anzeigen der erstellten Pods}{nginx-get-pods}
 \FloatBarrier
 
 % ----------------------------------------------------------------------------
@@ -318,9 +318,9 @@ kubectl get pods
 \begin{lstlisting}[language=bash,caption={Port-Forwarding für lokalen Zugriff}]
 kubectl expose deployment nginx --type=NodePort --Port=8080
 \end{lstlisting}
-\screenshotH{minikube_expose_deployment.png}{Erstelltes Dopleyment auf Port 8080 exposen}{expose-deployment}
+\placeholderfig{Erstelltes Dopleyment auf Port 8080 exposen}{expose-deployment}
 \FloatBarrier
-\screenshotH{minikube_reach_service.png}{Browser öffnen mit Zugriff auf Pod}{Reach-service}
+\placeholderfig{Browser öffnen mit Zugriff auf Pod}{Reach-service}
 \FloatBarrier
 
 % ----------------------------------------------------------------------------
@@ -333,14 +333,14 @@ kubectl expose deployment nginx \
   --target-port=80
 kubectl get svc nginx-clusterip
 \end{lstlisting}
-\screenshotH{minikube_expose_clusterip.png}{Interner ClusterIP-Service für das nginx-Deployment}{clusterip}
+\placeholderfig{Interner ClusterIP-Service für das nginx-Deployment}{clusterip}
 \FloatBarrier
 
 \begin{lstlisting}[language=bash,caption={Test im Cluster über temporären Curl-Pod}]
 kubectl run test-client --rm -it --image=curlimages/curl --restart=Never -- sh
 curl -I http://nginx-clusterip:8080
 \end{lstlisting}
-\screenshotH{minikube_test_reach_cluster.png}{Erfolgreicher Curl-Test des internen ClusterIP-Service}{clusterip-test}
+\placeholderfig{Erfolgreicher Curl-Test des internen ClusterIP-Service}{clusterip-test}
 \FloatBarrier
 
 % ----------------------------------------------------------------------------
@@ -353,20 +353,20 @@ kubectl expose deployment nginx \
   --target-port=80
 kubectl get svc nginx-nodeport
 \end{lstlisting}
-\screenshotH{minikube_expose_nodeport.png}{NodePort-Service mit zugewiesenem externen Port (z.\,B. 31245)}{nodeport-created}
+\placeholderfig{NodePort-Service mit zugewiesenem externen Port (z.\,B. 31245)}{nodeport-created}
 \FloatBarrier
 
 \begin{lstlisting}[language=bash,caption={Abrufen der externen URL über Minikube}]
 minikube service nginx-nodeport --url
 \end{lstlisting}
-\screenshotH{minikube_service_nodeport_url.png}{Von Minikube generierte URL für NodePort-Zugriff}{minikube-url}
+\placeholderfig{Von Minikube generierte URL für NodePort-Zugriff}{minikube-url}
 \FloatBarrier
 
 Zugriff im Browser oder mit \texttt{curl}:
 \begin{lstlisting}[language=bash]
 curl -I $(minikube service nginx-nodeport --url)
 \end{lstlisting}
-\screenshotH{minikube_curl_nodeport_url.png}{Erfolgreicher Curl-Test des internen Nodeport-Service}{Nodeport-test}
+\placeholderfig{Erfolgreicher Curl-Test des internen Nodeport-Service}{Nodeport-test}
 \FloatBarrier
 
 % ----------------------------------------------------------------------------
@@ -378,27 +378,27 @@ kubectl expose deployment nginx \
   --port=8080 \
   --target-port=80
 \end{lstlisting}
-\screenshotH{minikube_expose_loadbalancer.png}{LoadBalancer-Service mit zugewiesenem externen Port (z.\,B. 31245)}{loadbalancer-created}
+\placeholderfig{LoadBalancer-Service mit zugewiesenem externen Port (z.\,B. 31245)}{loadbalancer-created}
 \FloatBarrier
 
 Da Minikube keinen echten Cloud-Load-Balancer bereitstellt, wird die Funktion über einen lokalen Tunnel simuliert.
 \begin{lstlisting}[language=bash,caption={Start des Minikube-Tunnels (neues Terminal)}]
 minikube tunnel
 \end{lstlisting}
-\screenshotH{minikube_tunnel.png}{Simulierter LoadBalancer über Minikube-Tunnel}{minikube-tunnel}
+\placeholderfig{Simulierter LoadBalancer über Minikube-Tunnel}{minikube-tunnel}
 \FloatBarrier
 
 Prüfen der externen IP:
 \begin{lstlisting}[language=bash]
 kubectl get svc nginx-lb
 \end{lstlisting}
-\screenshotH{minikube_get_svc_loadbalancer.png}{LoadBalancer mit zugewiesener externer IP-Adresse}{loadbalancer-ip}
+\placeholderfig{LoadBalancer mit zugewiesener externer IP-Adresse}{loadbalancer-ip}
 \FloatBarrier
 
 \begin{lstlisting}[language=bash,caption={Zugriff über die externe IP}]
 curl -I http://<EXTERNAL-IP>:8080
 \end{lstlisting}
-\screenshotH{minikube_curl_loadbalancer.png}{Erfolgreicher Zugriff über den LoadBalancer-Service}{loadbalancer-access}
+\placeholderfig{Erfolgreicher Zugriff über den LoadBalancer-Service}{loadbalancer-access}
 \FloatBarrier
 
 % ----------------------------------------------------------------------------
