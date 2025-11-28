@@ -1,4 +1,3 @@
-
 %
 % FH Technikum Wien
 % !TEX encoding = UTF-8 Unicode
@@ -79,7 +78,7 @@
 %
 % Einträge für Deckblatt, Kurzfassung, etc.
 %
-\title{Class Workshop (Terraform)}
+\title{Terraform Workshop Protocol}
 \author{David Veigel \and Kevin Forter}
 \studentnumber{XXXXXXXXXXXXXXX} % ggf. beide Nummern: 12345678, 87654321
 \place{Wien}
@@ -94,456 +93,208 @@
 \newpage
 
 % ============================================================================
-\chapter{Überblick}
-Ziel: Provisionierung von AWS-Ressourcen, Aufbau eines Docker~Swarm-Clusters, Installation von Portainer und Analyse von Skalierung und Ausfallszenarien.
+\chapter{Workshop 1: Terraform Basics}
+In this workshop, we set up a simple web server on AWS using Terraform. The goal is to provision an EC2 instance in the default VPC, install an Apache web server using user data, and verify that it is reachable.
+
+\section{Configuration}
+
+\subsection{Provider and Region}
+We configure the AWS provider to use the \texttt{us-east-1} region, as specified in the requirements.
+\begin{lstlisting}[language=bash]
+provider "aws" {
+  region = "us-east-1"
+}
+\end{lstlisting}
+
+\subsection{VPC and Subnets}
+Instead of creating a new network, we use the existing default VPC and its subnets. This simplifies the setup for this initial workshop.
+\begin{lstlisting}[language=bash]
+data "aws_vpc" "default" {
+  default = true
+}
+
+data "aws_subnets" "default_vpc_subnets" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.default.id]
+  }
+}
+\end{lstlisting}
+
+\subsection{Security Group}
+To make our web server accessible, we create a security group. We allow inbound TCP traffic on port 80 (HTTP) from any IP address (\texttt{0.0.0.0/0}). We also allow all outbound traffic to ensure the server can download updates and packages.
+\begin{lstlisting}[language=bash]
+resource "aws_security_group" "web_sg" {
+  name        = "tf-web-sg"
+  description = "Allow HTTP in, all egress"
+  vpc_id      = data.aws_vpc.default.id
+
+  ingress {
+    description      = "HTTP"
+    from_port        = 80
+    to_port          = 80
+    protocol         = "tcp"
+    cidr_blocks      = ["0.0.0.0/0"]
+  }
+
+  egress {
+    description      = "All egress"
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
+    cidr_blocks      = ["0.0.0.0/0"]
+  }
+}
+\end{lstlisting}
+\screenshotH{ws_1/terraform_ws_1_security_group.png}{Security Group Configuration in AWS Console}{sg-ws1}
+
+\subsection{EC2 Instance}
+We provision an EC2 instance using the \texttt{t2.micro} instance type, which is eligible for the free tier. We dynamically fetch the latest Ubuntu 22.04 LTS AMI. The \texttt{user\_data} script is used to automatically install and start the Apache web server upon launch.
+\begin{lstlisting}[language=bash]
+resource "aws_instance" "web" {
+  ami                         = data.aws_ami.ubuntu.id
+  instance_type               = "t2.micro"
+  subnet_id                   = data.aws_subnets.default_vpc_subnets.ids[0]
+  vpc_security_group_ids      = [aws_security_group.web_sg.id]
+  associate_public_ip_address = true
+
+  user_data = <<-EOF
+    #!/bin/bash
+    sudo apt-get update
+    sudo apt-get install -y apache2
+    sudo systemctl start apache2
+    sudo systemctl enable apache2
+    echo "<h1>Hello World</h1>" | sudo tee /var/www/html/index.html
+  EOF
+
+  tags = {
+    Name = "tf-apache"
+  }
+}
+\end{lstlisting}
+\screenshotH{ws_1/terraform_ws_1_instances.png}{EC2 Instance Running in AWS Console}{ec2-ws1}
+
+\subsection{Output and Verification}
+Finally, we output the public DNS of the instance to easily access it. We also include a \texttt{null\_resource} to verify that the web server is actually reachable via HTTP.
+\begin{lstlisting}[language=bash]
+output "instance_public_dns" {
+  description = "Public DNS of the EC2 instance"
+  value       = aws_instance.web.public_dns
+}
+\end{lstlisting}
+
+\section{Execution}
+We initialize the Terraform project to download the necessary providers.
+\screenshotH{ws_1/terraform_ws_1_init.png}{Terraform Init}{init-ws1}
+
+Then we apply the configuration to create the resources.
+\screenshotH{ws_1/terraform_ws_1_auto_approve.png}{Terraform Apply}{apply-ws1}
 
 % ============================================================================
-\chapter{Provisionierung der AWS-Ressourcen}
-\subsection{Erstellung VPC}
-Neue VPC mit öffentlichem Subnet über den Assistenten im AWS-VPC-Dashboard erstellen. Security Group mit folgenden offenen Ports konfigurieren:
-\placeholderfig{Einstellung der VPC inklusive manueller CIDR-Einstellung 10.0.0.0/16}{vpc-overview}
-\FloatBarrier
+\chapter{Workshop 2: Advanced Networking}
+In the second workshop, we move away from the default VPC and build a custom network infrastructure. This includes creating a VPC, subnets, routing tables, and an Internet Gateway. We also assign a persistent Elastic IP to our web server.
 
-\subsection{Erstellung Subnet}
-\placeholderfig{Öffentliches Subnet mit Subnet-CIDR-Block 10.0.1.0/24}{subnet-overview}
-\FloatBarrier
-\placeholderfig{Automatische Vergabe der öffentlichen IPv4-Adresse aktiviert}{auto-public-ipv4}
-\FloatBarrier
+\section{Network Infrastructure}
 
-\subsection{Erstellung Sicherheitsgruppe}
-\begin{itemize}[leftmargin=*]
-  \item 22/TCP – SSH (öffentlich)
-  \item 80/TCP – HTTP (öffentlich)
-  \item 2377/TCP, 7946/TCP/UDP, 4789/UDP – innerhalb der SG
-\end{itemize}
-
-Die Sicherheitsgruppe musste in zwei Schritten erstellt werden, damit sie den Vorgaben entspricht.
-
-Schritt 1: Zuerst musste die Sicherheitsgruppe nur mit SSH und HTTP erstellt werden
-\placeholderfig{Erstellung der Sicherheitsgruppe mit SSH und HTTP}{create-inbound-rules}
-\FloatBarrier
-Schritt 2: Erst nach dem Erstellen der Sicherheitsgruppe konnten wir für die Docker-Regeln die eigene Sicherheitsgruppe als Quelle angeben.
-\placeholderfig{Anpassung der zuvor erstellten Sicherheitsgruppe mit zusätzlichen Regeln für Docker}{edit-inbound-rules}
-\FloatBarrier
-
-% ============================================================================
-\subsection{EC2-Instanzen (Nodes)}
-
-\placeholderfig{Erstellung der ersten Instanz in AWS}{create-instance}
-\FloatBarrier
-\placeholderfig{AMI: Ubuntu (neueste Version).}{operating-system}
-\FloatBarrier
-\placeholderfig{\texttt{t2.micro} (oder vergleichbar) als Instance Type}{instance-type}
-\FloatBarrier
-\placeholderfig{Aktivierung von \textbf{Auto-assign Public IP}.}{networksettings}
-\FloatBarrier
-\placeholderfig{Einfügen des User-Data-Skripts}{userdata}
-\FloatBarrier
-
-\begin{lstlisting}[language=bash,caption={EC2 User Data – Docker Installation}]
-#!/bin/bash
-curl -o /home/ubuntu/install-docker.sh https://get.docker.com/
-sh /home/ubuntu/install-docker.sh
-\end{lstlisting}
-
-\placeholderfig{EC2 Launch – Übersicht der Einstellungen}{ec2-launch}
-\FloatBarrier
-
-\subsection{Validierung}
+\subsection{VPC and Internet Gateway}
+We create a new VPC with the CIDR block \texttt{10.0.0.0/16}. To enable communication with the internet, we attach an Internet Gateway to this VPC.
 \begin{lstlisting}[language=bash]
-ssh -i <key.pem> ubuntu@<PUBLIC_IP>
-docker --version
-\end{lstlisting}
-\placeholderfig{SSH-Verbindung und Docker-Version}{ssh-docker}
-\FloatBarrier
+resource "aws_vpc" "web_vpc" {
+  cidr_block           = "10.0.0.0/16"
+  enable_dns_support   = true
+  enable_dns_hostnames = true
+  tags = { Name = "tf-web-vpc" }
+}
 
-% ============================================================================
-\subsection{Docker Swarm Setup}
+resource "aws_internet_gateway" "igw" {
+  vpc_id = aws_vpc.web_vpc.id
+  tags = { Name = "tf-web-igw" }
+}
+\end{lstlisting}
+\screenshotH{ws_2/vpc.png}{Custom VPC Created}{vpc-ws2}
+\screenshotH{ws_2/internet_gateway.png}{Internet Gateway Attached}{igw-ws2}
+
+\subsection{Subnet and Routing}
+We create a subnet (\texttt{10.0.1.0/24}) within our VPC. To allow traffic from the subnet to reach the internet, we create a custom route table that routes all traffic (\texttt{0.0.0.0/0}) to the Internet Gateway, and associate it with our subnet.
 \begin{lstlisting}[language=bash]
-docker swarm init --advertise-addr <PRIVATE_IP>
-docker node ls
+resource "aws_route_table" "web_rt" {
+  vpc_id = aws_vpc.web_vpc.id
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.igw.id
+  }
+  tags = { Name = "tf-web-rt" }
+}
+
+resource "aws_subnet" "web_subnet" {
+  vpc_id                  = aws_vpc.web_vpc.id
+  cidr_block              = "10.0.1.0/24"
+  availability_zone       = "us-east-1a"
+  map_public_ip_on_launch = false
+  tags = { Name = "tf-web-subnet" }
+}
+
+resource "aws_route_table_association" "web_rta" {
+  subnet_id      = aws_subnet.web_subnet.id
+  route_table_id = aws_route_table.web_rt.id
+}
 \end{lstlisting}
+\screenshotH{ws_2/subnet_routing_table.png}{Subnet and Route Table Association}{rt-ws2}
 
-\placeholderfig{\texttt{docker swarm init} auf der ersten Instanz}{docker-swarm-init}
-\FloatBarrier
-\placeholderfig{\texttt{docker node ls} auf einer Instanz}{node-ls-1-instance}
-\FloatBarrier
-\placeholderfig{Hinzufügen von zwei Workern}{add-two-worker}
-\FloatBarrier
-\placeholderfig{Generieren des Manager-Tokens}{manager-token}
-\FloatBarrier
-\placeholderfig{Hinzufügen eines zweiten Managers}{second-manager}
-\FloatBarrier
+\section{Compute and Access}
 
-\placeholderfig{\texttt{docker node ls} mit 4 Knoten}{node-ls}
-\FloatBarrier
+\subsection{Security Group}
+Similar to Workshop 1, we create a security group to allow HTTP traffic.
+\screenshotH{ws_2/security_group_ingres.png}{Security Group Inbound Rules}{sg-ws2}
 
-% ============================================================================
-\subsection{Portainer Installation}
+\subsection{Network Interface and Elastic IP}
+Instead of relying on auto-assigned public IPs, we create a Network Interface (ENI) with a fixed private IP (\texttt{10.0.1.50}) and associate an Elastic IP (EIP) with it. This gives our server a static public IP address.
 \begin{lstlisting}[language=bash]
-curl -L https://downloads.portainer.io/ce-lts/portainer-agent-stack.yml -o portainer-agent-stack.yml
-docker stack deploy -c portainer-agent-stack.yml portainer
+resource "aws_network_interface" "web_eni" {
+  subnet_id       = aws_subnet.web_subnet.id
+  private_ips     = ["10.0.1.50"]
+  security_groups = [aws_security_group.web_sg.id]
+  tags = { Name = "tf-web-eni" }
+}
+
+resource "aws_eip" "web_eip" {
+  domain                    = "vpc"
+  network_interface         = aws_network_interface.web_eni.id
+  associate_with_private_ip = "10.0.1.50"
+  depends_on                = [aws_internet_gateway.igw]
+  tags = { Name = "tf-web-eip" }
+}
 \end{lstlisting}
+\screenshotH{ws_2/elastic_ip.png}{Elastic IP Allocation}{eip-ws2}
 
-\placeholderfig{Portainer-Installation über die Kommandozeile}{portainer-installation}
-\FloatBarrier
-
-\placeholderfig{Erstellung eines neuen Logins für Portainer}{new-login}
-\FloatBarrier
-\placeholderfig{Angezeigte Services nach der Installation von Portainer}{standard-services}
-\FloatBarrier
-
-% ============================================================================
-\subsection{Service-Deployment, Scale-Out und Scale-In}
+\subsection{EC2 Instance}
+We launch the EC2 instance and attach the previously created network interface. This ensures the instance uses our specific network configuration.
 \begin{lstlisting}[language=bash]
-docker service create \
-  --name hello \
-  --replicas 3 \
-  --publish published=80,target=80 \
-  karthequian/helloworld:latest
+resource "aws_instance" "web" {
+  ami           = data.aws_ami.ubuntu.id
+  instance_type = "t2.micro"
+
+  network_interface {
+    network_interface_id = aws_network_interface.web_eni.id
+    device_index         = 0
+  }
+
+  user_data = <<-EOF
+    #!/bin/bash
+    sudo apt-get update
+    sudo apt-get install -y apache2
+    sudo systemctl start apache2
+    sudo systemctl enable apache2
+    echo "<h1>Hello World</h1>" | sudo tee /var/www/html/index.html
+  EOF
+
+  tags = { Name = "tf-apache-instance" }
+}
 \end{lstlisting}
-\placeholderfig{Service mit 3 Replikas und Port 80 erstellen}{create-service}
-\FloatBarrier
-\placeholderfig{Die 3 Replikas erhalten jeweils einen eigenen Slot}{three-replicas}
-\FloatBarrier
-\placeholderfig{Die 3 Replikas werden auf die 4 verschiedenen Nodes in AWS verteilt}{distribution-3-replicas}
-\FloatBarrier
+\screenshotH{ws_2/ec2_instance_summary.png}{EC2 Instance Summary}{ec2-ws2}
 
-\placeholderfig{Hello-World-Seite nach Deployment des Service}{hello-world}
-\FloatBarrier
-
-\begin{lstlisting}[language=bash]
-docker service scale hello=10
-\end{lstlisting}
-
-\placeholderfig{Die 10 Replikas werden nach dem Hochskalieren auf verschiedene Slots verteilt}{ten-replicas}
-\FloatBarrier
-\placeholderfig{Die 10 Replikas werden auf die 4 verschiedenen Nodes verteilt}{distribution-10-replicas}
-\FloatBarrier
-
-\placeholderfig{Hello-World-Seite wird nun von verschiedenen Containern bedient}{hello-world-2-containers}
-\FloatBarrier
-
-% ACHTUNG: Datei ohne Leerzeichen benennen (z. B. shutdown-node.png)
-\placeholderfig{Node wird als \enquote{down} angezeigt, nachdem eine EC2 heruntergefahren wurde}{shutdown-instance}
-\FloatBarrier
-
-\placeholderfig{Services auf dem betroffenen Node wechselten erst nach \enquote{ready}, dann nach \enquote{shutdown}, neue Replikas wurden auf andere Nodes verteilt}{status-ready}
-\FloatBarrier
-\placeholderfig{Node down mit zwei Services; auf den restlichen drei Nodes laufen insgesamt 10 Services}{node-down-10-services}
-\FloatBarrier
-
-\placeholderfig{Nach dem Hochfahren wurden die übrigen Services wieder sauber auf alle 4 Nodes verteilt}{still-shutdown}
-\FloatBarrier
-
-\placeholderfig{Beim Scale-Down wurden die verbleibenden 3 Services erneut gleichmäßig verteilt}{scale-down}
-\FloatBarrier
-
-% ============================================================================
-\subsection{Kurzantworten}
-\begin{itemize}[leftmargin=*]
-  \item \textbf{Skalierung des Clusters:}\\
-  Skalieren Sie Ihren Cluster von 3 auf 10 Maschinen.\\
-  \textit{Beobachtung:} Beim Öffnen der Hello-World-Seite wird jeweils ein anderer Container angezeigt.
-  \item \textbf{Wiederinbetriebnahme eines Workers:}\\
-  Wenn Sie den Worker wieder online schalten, werden die Services automatisch auf alle vier Nodes verteilt.
-  \item \textbf{Erneute Skalierung:}\\
-  Bei einer erneuten Skalierung werden die drei Services erneut gleichmäßig auf die vier Nodes verteilt.
-\end{itemize}
-
-% ============================================================================
-\subsection{Anhang – Wichtige Befehle}
-\begin{lstlisting}[language=bash]
-docker service ls
-docker service ps hello
-docker node ls
-docker service scale hello=10
-\end{lstlisting}
-
-% ============================================================================
-\chapter{Kubernetes Deployment Workshop mit Minikube}
-
-Ziel: In diesem Workshop wurde ein Kubernetes-Cluster mit \texttt{Minikube} erstellt, ein \texttt{nginx}-Deployment angelegt und verschiedene Service-Typen (ClusterIP, NodePort, LoadBalancer) getestet.
-
-% ----------------------------------------------------------------------------
-\subsection{Installtion Minikube und Kubectl}
-\begin{lstlisting}[language=bash,caption={Installation von Minikube}]
-curl -LO https://github.com/kubernetes/minikube/releases/latest/download/minikube-linux-amd64
-sudo install minikube-linux-amd64 /usr/local/bin/minikube && rm minikube-linux-amd64
-\end{lstlisting}
-\placeholderfig{Download und Installtion von Minikube}{minikube-install}
-\FloatBarrier
-
-\begin{lstlisting}[language=bash,caption={Installation von Kubectl}]
-curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-\end{lstlisting}
-\placeholderfig{Download und Installation von Kubectl}{kubectl-install}
-\FloatBarrier
-
-% ----------------------------------------------------------------------------
-\subsection{Start und Vorbereitung}
-\begin{lstlisting}[language=bash,caption={Start von Minikube und Überprüfung der Umgebung}]
-minikube start
-kubectl get nodes
-\end{lstlisting}
-\placeholderfig{Start von Minikube mit einer einzelnen Node (2GB Ram da sonst alles gebraucht wird)}{minikube-start}
-\FloatBarrier
-\placeholderfig{Alle laufenden Notes}{minikube-get-nodes}
-\FloatBarrier
-
-% ----------------------------------------------------------------------------
-\subsection{Deployment erstellen und skalieren}
-\begin{lstlisting}[language=bash,caption={nginx-Deployment mit einem Pod erstellen}]
-kubectl create deployment nginx --image=nginx:stable
-kubectl get deployments
-kubectl get pods
-\end{lstlisting}
-\placeholderfig{Erstellung des nginx-Deployments}{nginx-deploy}
-\FloatBarrier
-\placeholderfig{Anzeigen des erstellten Deployments}{get-deployments}
-\FloatBarrier
-
-\begin{lstlisting}[language=bash,caption={Deployment auf vier Replikas skalieren}]
-kubectl scale deployment nginx --replicas=4
-kubectl get pods
-\end{lstlisting}
-\placeholderfig{Vier Replikas des nginx-Deployments sind aktiv}{scale-4replicas}
-\FloatBarrier
-\placeholderfig{Anzeigen der erstellten Pods}{nginx-get-pods}
-\FloatBarrier
-
-% ----------------------------------------------------------------------------
-\subsection{Testzugriff auf einen Pod}
-\begin{lstlisting}[language=bash,caption={Port-Forwarding für lokalen Zugriff}]
-kubectl expose deployment nginx --type=NodePort --Port=8080
-\end{lstlisting}
-\placeholderfig{Erstelltes Dopleyment auf Port 8080 exposen}{expose-deployment}
-\FloatBarrier
-\placeholderfig{Browser öffnen mit Zugriff auf Pod}{Reach-service}
-\FloatBarrier
-
-% ----------------------------------------------------------------------------
-\subsection{ClusterIP Service (intern)}
-\begin{lstlisting}[language=bash,caption={Erstellung eines internen ClusterIP-Service}]
-kubectl expose deployment nginx \
-  --name=nginx-clusterip \
-  --type=ClusterIP \
-  --port=8080 \
-  --target-port=80
-kubectl get svc nginx-clusterip
-\end{lstlisting}
-\placeholderfig{Interner ClusterIP-Service für das nginx-Deployment}{clusterip}
-\FloatBarrier
-
-\begin{lstlisting}[language=bash,caption={Test im Cluster über temporären Curl-Pod}]
-kubectl run test-client --rm -it --image=curlimages/curl --restart=Never -- sh
-curl -I http://nginx-clusterip:8080
-\end{lstlisting}
-\placeholderfig{Erfolgreicher Curl-Test des internen ClusterIP-Service}{clusterip-test}
-\FloatBarrier
-
-% ----------------------------------------------------------------------------
-\subsection{NodePort Service (extern)}
-\begin{lstlisting}[language=bash,caption={Erstellung eines NodePort-Service}]
-kubectl expose deployment nginx \
-  --name=nginx-nodeport \
-  --type=NodePort \
-  --port=8080 \
-  --target-port=80
-kubectl get svc nginx-nodeport
-\end{lstlisting}
-\placeholderfig{NodePort-Service mit zugewiesenem externen Port (z.\,B. 31245)}{nodeport-created}
-\FloatBarrier
-
-\begin{lstlisting}[language=bash,caption={Abrufen der externen URL über Minikube}]
-minikube service nginx-nodeport --url
-\end{lstlisting}
-\placeholderfig{Von Minikube generierte URL für NodePort-Zugriff}{minikube-url}
-\FloatBarrier
-
-Zugriff im Browser oder mit \texttt{curl}:
-\begin{lstlisting}[language=bash]
-curl -I $(minikube service nginx-nodeport --url)
-\end{lstlisting}
-\placeholderfig{Erfolgreicher Curl-Test des internen Nodeport-Service}{Nodeport-test}
-\FloatBarrier
-
-% ----------------------------------------------------------------------------
-\subsection{LoadBalancer Service (simuliert)}
-\begin{lstlisting}[language=bash,caption={Erstellung eines LoadBalancer-Service}]
-kubectl expose deployment nginx \
-  --name=nginx-lb \
-  --type=LoadBalancer \
-  --port=8080 \
-  --target-port=80
-\end{lstlisting}
-\placeholderfig{LoadBalancer-Service mit zugewiesenem externen Port (z.\,B. 31245)}{loadbalancer-created}
-\FloatBarrier
-
-Da Minikube keinen echten Cloud-Load-Balancer bereitstellt, wird die Funktion über einen lokalen Tunnel simuliert.
-\begin{lstlisting}[language=bash,caption={Start des Minikube-Tunnels (neues Terminal)}]
-minikube tunnel
-\end{lstlisting}
-\placeholderfig{Simulierter LoadBalancer über Minikube-Tunnel}{minikube-tunnel}
-\FloatBarrier
-
-Prüfen der externen IP:
-\begin{lstlisting}[language=bash]
-kubectl get svc nginx-lb
-\end{lstlisting}
-\placeholderfig{LoadBalancer mit zugewiesener externer IP-Adresse}{loadbalancer-ip}
-\FloatBarrier
-
-\begin{lstlisting}[language=bash,caption={Zugriff über die externe IP}]
-curl -I http://<EXTERNAL-IP>:8080
-\end{lstlisting}
-\placeholderfig{Erfolgreicher Zugriff über den LoadBalancer-Service}{loadbalancer-access}
-\FloatBarrier
-
-% ----------------------------------------------------------------------------
-\subsection{Vergleich der Service-Typen}
-\begin{itemize}
-  \item \textbf{ClusterIP (Default):} Erzeugt eine virtuelle, \emph{interne} Cluster-IP. Service ist nur \emph{innerhalb} des Clusters erreichbar. Geeignet für Service-zu-Service-Kommunikation (z.\,B. Backend).
-  \item \textbf{NodePort:} Öffnet zusätzlich auf jedem Node einen Port (Standardbereich \texttt{30000{-}32767}). Der Service ist \emph{außerhalb} des Clusters via \texttt{<NodeIP>:<NodePort>} erreichbar. Einfach, aber eingeschränkte Flexibilität und keine integrierte L7-Funktionen.
-  \item \textbf{LoadBalancer:} Fragt (in Cloud-Umgebungen) einen externen L4-Load-Balancer an und erhält eine \emph{EXTERNAL-IP}. In Minikube wird dies über \texttt{minikube service} oder \texttt{minikube tunnel} simuliert. Ideal für produktiven Ingress-Traffic pro Service (L4).
-\end{itemize}
-\begin{table*}[t]
-\centering
-\begin{tabularx}{\textwidth}{@{}p{2.8cm}p{5cm}X@{}}
-\toprule
-\textbf{Typ} & \textbf{Erreichbarkeit} & \textbf{Einsatzgebiet / Beschreibung} \\
-\midrule
-ClusterIP & Nur innerhalb des Clusters & Standardtyp; ermöglicht Kommunikation zwischen Pods oder internen Diensten. \\
-NodePort & Von außen über Node-IP und festen Port erreichbar & Zugriff über \texttt{\textless NodeIP\textgreater:\textless NodePort\textgreater} (z.\,B. für Tests). \\
-LoadBalancer & Öffentliche IP / Cloud-Load-Balancer & Für produktive Setups; verteilt Traffic über alle Replikas. \\
-\bottomrule
-\end{tabularx}
-\caption{Kubernetes Service-Typen}
-\end{table*}
-\FloatBarrier
-
-% ----------------------------------------------------------------------------
-\subsection{YAML-Spezifikationen}
-\begin{lstlisting}[language=yaml,caption={Deployment YAML – nginx}]
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: nginx
-  labels:
-    app: nginx
-spec:
-  replicas: 4
-  selector:
-    matchLabels:
-      app: nginx
-  template:
-    metadata:
-      labels:
-        app: nginx
-    spec:
-      containers:
-        - name: nginx
-          image: nginx:stable
-          ports:
-            - containerPort: 80
-\end{lstlisting}
-
-\begin{lstlisting}[language=yaml,caption={Service YAML – LoadBalancer}]
-apiVersion: v1
-kind: Service
-metadata:
-  name: nginx-lb
-  labels:
-    app: nginx
-spec:
-  type: LoadBalancer
-  selector:
-    app: nginx
-  ports:
-    - name: http
-      port: 8080
-      targetPort: 80
-\end{lstlisting}
-
-\begin{lstlisting}[language=yaml,caption={Kombinierte YAML-Datei (Deployment + alle Service)}]
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: nginx
-  labels:
-    app: nginx
-spec:
-  replicas: 4
-  selector:
-    matchLabels:
-      app: nginx
-  template:
-    metadata:
-      labels:
-        app: nginx
-    spec:
-      containers:
-        - name: nginx
-          image: nginx:stable
-          ports:
-            - containerPort: 80
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: nginx-clusterip
-  labels:
-    app: nginx
-spec:
-  type: ClusterIP
-  selector:
-    app: nginx
-  ports:
-    - name: http
-      port: 8080
-      targetPort: 80
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: nginx-nodeport
-  labels:
-    app: nginx
-spec:
-  type: NodePort
-  selector:
-    app: nginx
-  ports:
-    - name: http
-      port: 8080
-      targetPort: 80
-      nodePort: 30080
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: nginx-lb
-  labels:
-    app: nginx
-spec:
-  type: LoadBalancer
-  selector:
-    app: nginx
-  ports:
-    - name: http
-      port: 8080
-      targetPort: 80
-\end{lstlisting}
-
-% ----------------------------------------------------------------------------
-\subsection{Zusammenfassung}
-\begin{itemize}[leftmargin=*]
-  \item \textbf{Cluster:} Ein lokales Kubernetes-Cluster mit Minikube wurde gestartet.
-  \item \textbf{Deployment:} Ein nginx-Deployment mit vier Replikas wurde erstellt.
-  \item \textbf{Service-Typen:} ClusterIP, NodePort und LoadBalancer wurden erfolgreich getestet.
-  \item \textbf{Zugriff:} Über Port-Forwarding, NodePort und Minikube-Tunnel konnte der Webserver erreicht werden.
-  \item \textbf{Fazit:} Der Workshop verdeutlicht, wie Deployments und Services in Kubernetes strukturiert sind und welche Service-Typen für interne bzw. externe Zugriffe geeignet sind.
-\end{itemize}
+\section{Execution}
+We apply the configuration and verify the creation of resources. The output confirms the public IP of our instance.
+\screenshotH{ws_2/terraform_apply_1.png}{Terraform Apply Execution}{apply-ws2}
 
 \end{document}
