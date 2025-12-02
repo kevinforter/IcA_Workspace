@@ -297,4 +297,226 @@ resource "aws_instance" "web" {
 We apply the configuration and verify the creation of resources. The output confirms the public IP of our instance.
 \screenshotH{ws_2/terraform_apply_1.png}{Terraform Apply Execution}{apply-ws2}
 
+% ============================================================================
+\chapter{Workshop 3: Load Balancing and High Availability}
+In this workshop, we implement a highly available web application architecture. We distribute traffic across two EC2 instances in different Availability Zones (AZs) using an Application Load Balancer (ALB). This ensures that if one AZ fails, the application remains accessible.
+
+\section{Networking Setup}
+
+\subsection{VPC and Internet Gateway}
+We create a VPC and an Internet Gateway, similar to the previous workshop, to provide a network environment and internet connectivity.
+\begin{lstlisting}[language=bash]
+resource "aws_vpc" "web_vpc" {
+  cidr_block           = "10.0.0.0/16"
+  enable_dns_support   = true
+  enable_dns_hostnames = true
+  tags = { Name = "tf-web-vpc" }
+}
+
+resource "aws_internet_gateway" "igw" {
+  vpc_id = aws_vpc.web_vpc.id
+  tags = { Name = "tf-web-igw" }
+}
+\end{lstlisting}
+\screenshotH{ws_3/vpc.png}{VPC Configuration}{vpc-ws3}
+\screenshotH{ws_3/internet_gateway.png}{Internet Gateway}{igw-ws3}
+
+\subsection{Subnets in Multiple AZs}
+To achieve high availability, we create two subnets in different Availability Zones (\texttt{us-east-1a} and \texttt{us-east-1b}).
+\begin{lstlisting}[language=bash]
+resource "aws_subnet" "subnet_1" {
+  vpc_id                  = aws_vpc.web_vpc.id
+  cidr_block              = "10.0.1.0/24"
+  availability_zone       = "us-east-1a"
+  map_public_ip_on_launch = true
+  tags = { Name = "tf-subnet-1" }
+}
+
+resource "aws_subnet" "subnet_2" {
+  vpc_id                  = aws_vpc.web_vpc.id
+  cidr_block              = "10.0.2.0/24"
+  availability_zone       = "us-east-1b"
+  map_public_ip_on_launch = true
+  tags = { Name = "tf-subnet-2" }
+}
+\end{lstlisting}
+\screenshotH{ws_3/subnet_1.png}{Subnet 1 in us-east-1a}{subnet1-ws3}
+\screenshotH{ws_3/subnet_2.png}{Subnet 2 in us-east-1b}{subnet2-ws3}
+
+\subsection{Routing}
+We configure a route table to send internet traffic to the Internet Gateway and associate it with both subnets.
+\begin{lstlisting}[language=bash]
+resource "aws_route_table" "web_rt" {
+  vpc_id = aws_vpc.web_vpc.id
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.igw.id
+  }
+  tags = { Name = "tf-web-rt" }
+}
+
+resource "aws_route_table_association" "rta_1" {
+  subnet_id      = aws_subnet.subnet_1.id
+  route_table_id = aws_route_table.web_rt.id
+}
+
+resource "aws_route_table_association" "rta_2" {
+  subnet_id      = aws_subnet.subnet_2.id
+  route_table_id = aws_route_table.web_rt.id
+}
+\end{lstlisting}
+\screenshotH{ws_3/routing_table.png}{Route Table}{rt-ws3}
+\screenshotH{ws_3/routing_table_subnet_association.png}{Route Table Association}{rta-ws3}
+
+\section{Security Groups}
+
+\subsection{Load Balancer Security Group}
+This security group allows incoming HTTP traffic from anywhere to the Load Balancer.
+\begin{lstlisting}[language=bash]
+resource "aws_security_group" "lb_sg" {
+  name        = "tf-lb-sg"
+  description = "Allow HTTP to Load Balancer"
+  vpc_id      = aws_vpc.web_vpc.id
+
+  ingress {
+    description = "HTTP from Internet"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+\end{lstlisting}
+\screenshotH{ws_3/security_group_load_balancer.png}{Load Balancer Security Group}{sg-lb-ws3}
+
+\subsection{EC2 Security Group}
+The EC2 instances should only accept traffic from the Load Balancer. We reference the Load Balancer's security group ID in the ingress rule.
+\begin{lstlisting}[language=bash]
+resource "aws_security_group" "ec2_sg" {
+  name        = "tf-ec2-sg"
+  description = "Allow HTTP from LB"
+  vpc_id      = aws_vpc.web_vpc.id
+
+  ingress {
+    description     = "HTTP from Load Balancer"
+    from_port       = 80
+    to_port         = 80
+    protocol        = "tcp"
+    security_groups = [aws_security_group.lb_sg.id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+\end{lstlisting}
+\screenshotH{ws_3/security_group_ec2.png}{EC2 Security Group restricted to LB}{sg-ec2-ws3}
+
+\section{Load Balancer Configuration}
+
+\subsection{Application Load Balancer}
+We create an external Application Load Balancer spanning our two subnets.
+\begin{lstlisting}[language=bash]
+resource "aws_lb" "app_lb" {
+  name               = "tf-web-lb"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.lb_sg.id]
+  subnets            = [aws_subnet.subnet_1.id, aws_subnet.subnet_2.id]
+  tags = { Name = "tf-web-lb" }
+}
+\end{lstlisting}
+\screenshotH{ws_3/load_balancer.png}{Application Load Balancer}{alb-ws3}
+
+\subsection{Target Group and Listener}
+The target group defines where to route requests. The listener listens on port 80 and forwards traffic to this target group.
+\begin{lstlisting}[language=bash]
+resource "aws_lb_target_group" "web_tg" {
+  name     = "tf-web-tg"
+  port     = 80
+  protocol = "HTTP"
+  vpc_id   = aws_vpc.web_vpc.id
+
+  health_check {
+    path                = "/"
+    interval            = 30
+    timeout             = 5
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+  }
+}
+
+resource "aws_lb_listener" "front_end" {
+  load_balancer_arn = aws_lb.app_lb.arn
+  port              = "80"
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.web_tg.arn
+  }
+}
+\end{lstlisting}
+\screenshotH{ws_3/load_balancer_target_group.png}{Target Group}{tg-ws3}
+\screenshotH{ws_3/load_balancer_listener.png}{Listener Configuration}{listener-ws3}
+
+\section{Compute Resources}
+
+\subsection{EC2 Instances}
+We launch two EC2 instances. We use the \texttt{count} parameter to create multiple instances and the modulo operator to alternate them between the two subnets. The user data script is customized to display the instance number.
+\begin{lstlisting}[language=bash]
+resource "aws_instance" "web" {
+  count         = 2
+  ami           = data.aws_ami.ubuntu.id
+  instance_type = "t2.micro"
+  subnet_id     = count.index % 2 == 0 ? aws_subnet.subnet_1.id : aws_subnet.subnet_2.id
+  vpc_security_group_ids = [aws_security_group.ec2_sg.id]
+
+  user_data = <<-EOF
+    #!/bin/bash
+    sudo apt-get update
+    sudo apt-get install -y apache2
+    sudo systemctl start apache2
+    sudo systemctl enable apache2
+    echo "<h1>Hello from Instance ${count.index + 1}</h1>" | sudo tee /var/www/html/index.html
+  EOF
+
+  tags = { Name = "tf-web-instance-${count.index + 1}" }
+}
+\end{lstlisting}
+\screenshotH{ws_3/ec2_instance_1.png}{EC2 Instance 1}{ec2-1-ws3}
+\screenshotH{ws_3/ec2_instance_2.png}{EC2 Instance 2}{ec2-2-ws3}
+
+\subsection{Target Group Attachment}
+We attach the created instances to the target group so the load balancer can route traffic to them.
+\begin{lstlisting}[language=bash]
+resource "aws_lb_target_group_attachment" "web_attach" {
+  count            = 2
+  target_group_arn = aws_lb_target_group.web_tg.arn
+  target_id        = aws_instance.web[count.index].id
+  port             = 80
+}
+\end{lstlisting}
+\screenshotH{ws_3/load_balancer_target_group_association.png}{Target Group Attachment}{tg-attach-ws3}
+
+\section{Verification}
+After applying the configuration, we access the application via the Load Balancer's DNS name.
+\begin{lstlisting}[language=bash]
+output "load_balancer_dns" {
+  description = "The DNS name of the load balancer"
+  value       = aws_lb.app_lb.dns_name
+}
+\end{lstlisting}
+\screenshotH{ws_3/website_from_load_balancer.png}{Website Accessed via Load Balancer}{web-lb-ws3}
+
 \end{document}
