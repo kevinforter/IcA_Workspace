@@ -519,4 +519,25 @@ output "load_balancer_dns" {
 \end{lstlisting}
 \screenshotH{ws_3/website_from_load_balancer.png}{Website Accessed via Load Balancer}{web-lb-ws3}
 
+\section{Automation and CI/CD}
+To automate the deployment process, we integrate GitHub Actions with Terraform Cloud. This allows us to automatically provision and manage our infrastructure upon code changes.
+
+\subsection{GitHub Configuration}
+We configure the necessary secrets in our GitHub repository to authenticate with Terraform Cloud.
+\screenshotH{ws_3/repository_secrets.png}{GitHub Repository Secrets}{secrets-ws3}
+
+\subsection{Terraform Cloud Configuration}
+In Terraform Cloud, we define the variables required for our infrastructure, such as AWS credentials and region settings.
+\screenshotH{ws_3/workshop_variables.png}{Terraform Cloud Variables}{vars-ws3}
+
+\subsection{CI/CD Pipeline}
+When code is pushed to the repository, a GitHub Action is triggered. This action communicates with Terraform Cloud to plan and apply the changes.
+\screenshotH{ws_3/github_action.png}{GitHub Action Execution}{action-ws3}
+
+The execution of the plan can be monitored in Terraform Cloud.
+\screenshotH{ws_3/terraform_clould_workshop_3_create.png}{Terraform Cloud Apply Run}{tf-cloud-create-ws3}
+
+Finally, we can also manage the destruction of resources through the pipeline or Terraform Cloud directly.
+\screenshotH{ws_3/terraform_clould_workshop_3_destroy.png}{Terraform Cloud Destroy Run}{tf-cloud-destroy-ws3}
+
 \end{document}
