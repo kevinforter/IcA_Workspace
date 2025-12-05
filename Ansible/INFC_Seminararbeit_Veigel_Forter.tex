@@ -93,456 +93,73 @@
 \newpage
 
 % ============================================================================
-\chapter{Workshop 1: Terraform Basics}
-In this workshop, we set up a simple web server on AWS using Terraform. The goal is to provision an EC2 instance in the default VPC, install an Apache web server using user data, and verify that it is reachable.
+\chapter{Ansible Workshop}
+In this workshop, we explore the capabilities of Ansible for automation and configuration management. We set up a master node and worker nodes, configure SSH access, and deploy playbooks to manage files and web servers.
+
+\section{Installation and Setup}
+
+\subsection{Installing Ansible}
+First, we install Ansible on the master node. This involves updating the package manager and installing the ansible package.
+\screenshotH{master_install_ansible.png}{Installing Ansible on Master}{install}
+
+\subsection{SSH Key Generation}
+To allow passwordless authentication between the master and worker nodes, we generate an SSH key pair on the master node.
+\screenshotH{master_ssh_key_generation.png}{Generating SSH Keys}{ssh-gen}
+
+\subsection{Distributing Keys}
+The public key is then copied to the worker nodes. This ensures that the master can connect to the workers without manual password entry.
+\screenshotH{worker_save_master_ssh_key.png}{Saving Master Key on Worker}{ssh-copy}
+
+\subsection{Verifying Connection}
+We verify the SSH connection to the worker nodes to ensure that the setup is correct.
+\screenshotH{master_connection_worker1_succesfull.png}{Connection to Worker 1 Successful}{conn-w1}
+\screenshotH{master_connection_worker2_succesfull.png}{Connection to Worker 2 Successful}{conn-w2}
 
 \section{Configuration}
 
-\subsection{Provider and Region}
-We configure the AWS provider to use the \texttt{us-east-1} region, as specified in the requirements.
-\begin{lstlisting}[language=bash]
-provider "aws" {
-  region = "us-east-1"
-}
-\end{lstlisting}
+\subsection{Creating Configuration}
+We create a directory for our Ansible project and generate a default configuration file.
+\screenshotH{master_create_ansible_config.png}{Creating Ansible Config}{create-conf}
 
-\subsection{VPC and Subnets}
-Instead of creating a new network, we use the existing default VPC and its subnets. This simplifies the setup for this initial workshop.
-\begin{lstlisting}[language=bash]
-data "aws_vpc" "default" {
-  default = true
-}
+\subsection{Ansible Config File}
+The \texttt{ansible.cfg} file is customized to define the inventory file location and other defaults.
+\screenshotH{master_ansible_config.png}{Ansible Configuration File}{ansible-conf}
 
-data "aws_subnets" "default_vpc_subnets" {
-  filter {
-    name   = "vpc-id"
-    values = [data.aws_vpc.default.id]
-  }
-}
-\end{lstlisting}
+\subsection{Hosts Inventory}
+We define our inventory in the \texttt{hosts} file, listing the IP addresses of our worker nodes and grouping them if necessary.
+\screenshotH{master_ansible_hosts_config.png}{Hosts Inventory Configuration}{hosts-conf}
 
-\subsection{Security Group}
-To make our web server accessible, we create a security group. We allow inbound TCP traffic on port 80 (HTTP) from any IP address (\texttt{0.0.0.0/0}). We also allow all outbound traffic to ensure the server can download updates and packages.
-\begin{lstlisting}[language=bash]
-resource "aws_security_group" "web_sg" {
-  name        = "tf-web-sg"
-  description = "Allow HTTP in, all egress"
-  vpc_id      = data.aws_vpc.default.id
+\subsection{Ping Test}
+We use the \texttt{ansible} command with the \texttt{ping} module to test connectivity to all hosts in our inventory.
+\screenshotH{master_ping_workers.png}{Pinging Workers}{ping}
 
-  ingress {
-    description      = "HTTP"
-    from_port        = 80
-    to_port          = 80
-    protocol         = "tcp"
-    cidr_blocks      = ["0.0.0.0/0"]
-  }
+\section{Playbooks}
 
-  egress {
-    description      = "All egress"
-    from_port        = 0
-    to_port          = 0
-    protocol         = "-1"
-    cidr_blocks      = ["0.0.0.0/0"]
-  }
-}
-\end{lstlisting}
-\screenshotH{ws_1/terraform_ws_1_security_group.png}{Security Group Configuration in AWS Console}{sg-ws1}
+\subsection{File Operations}
+We start with a simple playbook to copy a file to the worker nodes.
+\screenshotH{master_create_testfile_copy_to_worker.png}{Creating Copy Playbook}{copy-playbook}
 
-\subsection{EC2 Instance}
-We provision an EC2 instance using the \texttt{t2.micro} instance type, which is eligible for the free tier. We dynamically fetch the latest Ubuntu 22.04 LTS AMI. The \texttt{user\_data} script is used to automatically install and start the Apache web server upon launch.
-\begin{lstlisting}[language=bash]
-resource "aws_instance" "web" {
-  ami                         = data.aws_ami.ubuntu.id
-  instance_type               = "t2.micro"
-  subnet_id                   = data.aws_subnets.default_vpc_subnets.ids[0]
-  vpc_security_group_ids      = [aws_security_group.web_sg.id]
-  associate_public_ip_address = true
+We run the playbook and observe the output to ensure the task is changed.
+\screenshotH{master_check_for_testfile_copy.png}{Running Copy Playbook}{run-copy}
 
-  user_data = <<-EOF
-    #!/bin/bash
-    sudo apt-get update
-    sudo apt-get install -y apache2
-    sudo systemctl start apache2
-    sudo systemctl enable apache2
-    echo "<h1>Hello World</h1>" | sudo tee /var/www/html/index.html
-  EOF
+We verify on the worker node that the file has indeed been copied.
+\screenshotH{worker_after_testfile_copy.png}{File Copied to Worker}{verify-copy}
 
-  tags = {
-    Name = "tf-apache"
-  }
-}
-\end{lstlisting}
-\screenshotH{ws_1/terraform_ws_1_instances.png}{EC2 Instance Running in AWS Console}{ec2-ws1}
+We also create a playbook to delete the file and clean up.
+\screenshotH{master_delete_testfile_on_worker.png}{Deleting File Playbook}{delete-playbook}
 
-\subsection{Output and Verification}
-Finally, we output the public DNS of the instance to easily access it. We also include a \texttt{null\_resource} to verify that the web server is actually reachable via HTTP.
-\begin{lstlisting}[language=bash]
-output "instance_public_dns" {
-  description = "Public DNS of the EC2 instance"
-  value       = aws_instance.web.public_dns
-}
-\end{lstlisting}
+\subsection{Webserver Deployment}
+Next, we create a more complex playbook to install and configure a web server (Apache/Nginx) on the workers.
+\screenshotH{master_webserver_config_yaml.png}{Webserver Configuration Playbook}{web-playbook}
 
-\section{Execution}
-We initialize the Terraform project to download the necessary providers.
-\screenshotH{ws_1/terraform_ws_1_init.png}{Terraform Init}{init-ws1}
+We first deploy this playbook to a single worker to test.
+\screenshotH{master_load_playbook_on_worker1.png}{Deploying to Worker 1}{deploy-w1}
 
-Then we apply the configuration to create the resources.
-\screenshotH{ws_1/terraform_ws_1_auto_approve.png}{Terraform Apply}{apply-ws1}
+Once satisfied, we deploy it to all worker nodes.
+\screenshotH{master_load_playbook_on_all_worker.png}{Deploying to All Workers}{deploy-all}
 
-% ============================================================================
-\chapter{Workshop 2: Advanced Networking}
-In the second workshop, we move away from the default VPC and build a custom network infrastructure. This includes creating a VPC, subnets, routing tables, and an Internet Gateway. We also assign a persistent Elastic IP to our web server.
-
-\section{Network Infrastructure}
-
-\subsection{VPC and Internet Gateway}
-We create a new VPC with the CIDR block \texttt{10.0.0.0/16}. To enable communication with the internet, we attach an Internet Gateway to this VPC.
-\begin{lstlisting}[language=bash]
-resource "aws_vpc" "web_vpc" {
-  cidr_block           = "10.0.0.0/16"
-  enable_dns_support   = true
-  enable_dns_hostnames = true
-  tags = { Name = "tf-web-vpc" }
-}
-
-resource "aws_internet_gateway" "igw" {
-  vpc_id = aws_vpc.web_vpc.id
-  tags = { Name = "tf-web-igw" }
-}
-\end{lstlisting}
-\screenshotH{ws_2/vpc.png}{Custom VPC Created}{vpc-ws2}
-\screenshotH{ws_2/internet_gateway.png}{Internet Gateway Attached}{igw-ws2}
-
-\subsection{Subnet and Routing}
-We create a subnet (\texttt{10.0.1.0/24}) within our VPC. To allow traffic from the subnet to reach the internet, we create a custom route table that routes all traffic (\texttt{0.0.0.0/0}) to the Internet Gateway, and associate it with our subnet.
-\begin{lstlisting}[language=bash]
-resource "aws_route_table" "web_rt" {
-  vpc_id = aws_vpc.web_vpc.id
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.igw.id
-  }
-  tags = { Name = "tf-web-rt" }
-}
-
-resource "aws_subnet" "web_subnet" {
-  vpc_id                  = aws_vpc.web_vpc.id
-  cidr_block              = "10.0.1.0/24"
-  availability_zone       = "us-east-1a"
-  map_public_ip_on_launch = false
-  tags = { Name = "tf-web-subnet" }
-}
-
-resource "aws_route_table_association" "web_rta" {
-  subnet_id      = aws_subnet.web_subnet.id
-  route_table_id = aws_route_table.web_rt.id
-}
-\end{lstlisting}
-\screenshotH{ws_2/subnet_routing_table.png}{Subnet and Route Table Association}{rt-ws2}
-
-\section{Compute and Access}
-
-\subsection{Security Group}
-Similar to Workshop 1, we create a security group to allow HTTP traffic.
-\screenshotH{ws_2/security_group_ingres.png}{Security Group Inbound Rules}{sg-ws2}
-
-\subsection{Network Interface and Elastic IP}
-Instead of relying on auto-assigned public IPs, we create a Network Interface (ENI) with a fixed private IP (\texttt{10.0.1.50}) and associate an Elastic IP (EIP) with it. This gives our server a static public IP address.
-\begin{lstlisting}[language=bash]
-resource "aws_network_interface" "web_eni" {
-  subnet_id       = aws_subnet.web_subnet.id
-  private_ips     = ["10.0.1.50"]
-  security_groups = [aws_security_group.web_sg.id]
-  tags = { Name = "tf-web-eni" }
-}
-
-resource "aws_eip" "web_eip" {
-  domain                    = "vpc"
-  network_interface         = aws_network_interface.web_eni.id
-  associate_with_private_ip = "10.0.1.50"
-  depends_on                = [aws_internet_gateway.igw]
-  tags = { Name = "tf-web-eip" }
-}
-\end{lstlisting}
-\screenshotH{ws_2/elastic_ip.png}{Elastic IP Allocation}{eip-ws2}
-
-\subsection{EC2 Instance}
-We launch the EC2 instance and attach the previously created network interface. This ensures the instance uses our specific network configuration.
-\begin{lstlisting}[language=bash]
-resource "aws_instance" "web" {
-  ami           = data.aws_ami.ubuntu.id
-  instance_type = "t2.micro"
-
-  network_interface {
-    network_interface_id = aws_network_interface.web_eni.id
-    device_index         = 0
-  }
-
-  user_data = <<-EOF
-    #!/bin/bash
-    sudo apt-get update
-    sudo apt-get install -y apache2
-    sudo systemctl start apache2
-    sudo systemctl enable apache2
-    echo "<h1>Hello World</h1>" | sudo tee /var/www/html/index.html
-  EOF
-
-  tags = { Name = "tf-apache-instance" }
-}
-\end{lstlisting}
-\screenshotH{ws_2/ec2_instance_summary.png}{EC2 Instance Summary}{ec2-ws2}
-
-\section{Execution}
-We apply the configuration and verify the creation of resources. The output confirms the public IP of our instance.
-\screenshotH{ws_2/terraform_apply_1.png}{Terraform Apply Execution}{apply-ws2}
-
-% ============================================================================
-\chapter{Workshop 3: Load Balancing and High Availability}
-In this workshop, we implement a highly available web application architecture. We distribute traffic across two EC2 instances in different Availability Zones (AZs) using an Application Load Balancer (ALB). This ensures that if one AZ fails, the application remains accessible.
-
-\section{Networking Setup}
-
-\subsection{VPC and Internet Gateway}
-We create a VPC and an Internet Gateway, similar to the previous workshop, to provide a network environment and internet connectivity.
-\begin{lstlisting}[language=bash]
-resource "aws_vpc" "web_vpc" {
-  cidr_block           = "10.0.0.0/16"
-  enable_dns_support   = true
-  enable_dns_hostnames = true
-  tags = { Name = "tf-web-vpc" }
-}
-
-resource "aws_internet_gateway" "igw" {
-  vpc_id = aws_vpc.web_vpc.id
-  tags = { Name = "tf-web-igw" }
-}
-\end{lstlisting}
-\screenshotH{ws_3/vpc.png}{VPC Configuration}{vpc-ws3}
-\screenshotH{ws_3/internet_gateway.png}{Internet Gateway}{igw-ws3}
-
-\subsection{Subnets in Multiple AZs}
-To achieve high availability, we create two subnets in different Availability Zones (\texttt{us-east-1a} and \texttt{us-east-1b}).
-\begin{lstlisting}[language=bash]
-resource "aws_subnet" "subnet_1" {
-  vpc_id                  = aws_vpc.web_vpc.id
-  cidr_block              = "10.0.1.0/24"
-  availability_zone       = "us-east-1a"
-  map_public_ip_on_launch = true
-  tags = { Name = "tf-subnet-1" }
-}
-
-resource "aws_subnet" "subnet_2" {
-  vpc_id                  = aws_vpc.web_vpc.id
-  cidr_block              = "10.0.2.0/24"
-  availability_zone       = "us-east-1b"
-  map_public_ip_on_launch = true
-  tags = { Name = "tf-subnet-2" }
-}
-\end{lstlisting}
-\screenshotH{ws_3/subnet_1.png}{Subnet 1 in us-east-1a}{subnet1-ws3}
-\screenshotH{ws_3/subnet_2.png}{Subnet 2 in us-east-1b}{subnet2-ws3}
-
-\subsection{Routing}
-We configure a route table to send internet traffic to the Internet Gateway and associate it with both subnets.
-\begin{lstlisting}[language=bash]
-resource "aws_route_table" "web_rt" {
-  vpc_id = aws_vpc.web_vpc.id
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.igw.id
-  }
-  tags = { Name = "tf-web-rt" }
-}
-
-resource "aws_route_table_association" "rta_1" {
-  subnet_id      = aws_subnet.subnet_1.id
-  route_table_id = aws_route_table.web_rt.id
-}
-
-resource "aws_route_table_association" "rta_2" {
-  subnet_id      = aws_subnet.subnet_2.id
-  route_table_id = aws_route_table.web_rt.id
-}
-\end{lstlisting}
-\screenshotH{ws_3/routing_table.png}{Route Table}{rt-ws3}
-\screenshotH{ws_3/routing_table_subnet_association.png}{Route Table Association}{rta-ws3}
-
-\section{Security Groups}
-
-\subsection{Load Balancer Security Group}
-This security group allows incoming HTTP traffic from anywhere to the Load Balancer.
-\begin{lstlisting}[language=bash]
-resource "aws_security_group" "lb_sg" {
-  name        = "tf-lb-sg"
-  description = "Allow HTTP to Load Balancer"
-  vpc_id      = aws_vpc.web_vpc.id
-
-  ingress {
-    description = "HTTP from Internet"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
-\end{lstlisting}
-\screenshotH{ws_3/security_group_load_balancer.png}{Load Balancer Security Group}{sg-lb-ws3}
-
-\subsection{EC2 Security Group}
-The EC2 instances should only accept traffic from the Load Balancer. We reference the Load Balancer's security group ID in the ingress rule.
-\begin{lstlisting}[language=bash]
-resource "aws_security_group" "ec2_sg" {
-  name        = "tf-ec2-sg"
-  description = "Allow HTTP from LB"
-  vpc_id      = aws_vpc.web_vpc.id
-
-  ingress {
-    description     = "HTTP from Load Balancer"
-    from_port       = 80
-    to_port         = 80
-    protocol        = "tcp"
-    security_groups = [aws_security_group.lb_sg.id]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
-\end{lstlisting}
-\screenshotH{ws_3/security_group_ec2.png}{EC2 Security Group restricted to LB}{sg-ec2-ws3}
-
-\section{Load Balancer Configuration}
-
-\subsection{Application Load Balancer}
-We create an external Application Load Balancer spanning our two subnets.
-\begin{lstlisting}[language=bash]
-resource "aws_lb" "app_lb" {
-  name               = "tf-web-lb"
-  internal           = false
-  load_balancer_type = "application"
-  security_groups    = [aws_security_group.lb_sg.id]
-  subnets            = [aws_subnet.subnet_1.id, aws_subnet.subnet_2.id]
-  tags = { Name = "tf-web-lb" }
-}
-\end{lstlisting}
-\screenshotH{ws_3/load_balancer.png}{Application Load Balancer}{alb-ws3}
-
-\subsection{Target Group and Listener}
-The target group defines where to route requests. The listener listens on port 80 and forwards traffic to this target group.
-\begin{lstlisting}[language=bash]
-resource "aws_lb_target_group" "web_tg" {
-  name     = "tf-web-tg"
-  port     = 80
-  protocol = "HTTP"
-  vpc_id   = aws_vpc.web_vpc.id
-
-  health_check {
-    path                = "/"
-    interval            = 30
-    timeout             = 5
-    healthy_threshold   = 2
-    unhealthy_threshold = 2
-  }
-}
-
-resource "aws_lb_listener" "front_end" {
-  load_balancer_arn = aws_lb.app_lb.arn
-  port              = "80"
-  protocol          = "HTTP"
-
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.web_tg.arn
-  }
-}
-\end{lstlisting}
-\screenshotH{ws_3/load_balancer_target_group.png}{Target Group}{tg-ws3}
-\screenshotH{ws_3/load_balancer_listener.png}{Listener Configuration}{listener-ws3}
-
-\section{Compute Resources}
-
-\subsection{EC2 Instances}
-We launch two EC2 instances. We use the \texttt{count} parameter to create multiple instances and the modulo operator to alternate them between the two subnets. The user data script is customized to display the instance number.
-\begin{lstlisting}[language=bash]
-resource "aws_instance" "web" {
-  count         = 2
-  ami           = data.aws_ami.ubuntu.id
-  instance_type = "t2.micro"
-  subnet_id     = count.index % 2 == 0 ? aws_subnet.subnet_1.id : aws_subnet.subnet_2.id
-  vpc_security_group_ids = [aws_security_group.ec2_sg.id]
-
-  user_data = <<-EOF
-    #!/bin/bash
-    sudo apt-get update
-    sudo apt-get install -y apache2
-    sudo systemctl start apache2
-    sudo systemctl enable apache2
-    echo "<h1>Hello from Instance ${count.index + 1}</h1>" | sudo tee /var/www/html/index.html
-  EOF
-
-  tags = { Name = "tf-web-instance-${count.index + 1}" }
-}
-\end{lstlisting}
-\screenshotH{ws_3/ec2_instance_1.png}{EC2 Instance 1}{ec2-1-ws3}
-\screenshotH{ws_3/ec2_instance_2.png}{EC2 Instance 2}{ec2-2-ws3}
-
-\subsection{Target Group Attachment}
-We attach the created instances to the target group so the load balancer can route traffic to them.
-\begin{lstlisting}[language=bash]
-resource "aws_lb_target_group_attachment" "web_attach" {
-  count            = 2
-  target_group_arn = aws_lb_target_group.web_tg.arn
-  target_id        = aws_instance.web[count.index].id
-  port             = 80
-}
-\end{lstlisting}
-\screenshotH{ws_3/load_balancer_target_group_association.png}{Target Group Attachment}{tg-attach-ws3}
-
-\section{Verification}
-After applying the configuration, we access the application via the Load Balancer's DNS name.
-\begin{lstlisting}[language=bash]
-output "load_balancer_dns" {
-  description = "The DNS name of the load balancer"
-  value       = aws_lb.app_lb.dns_name
-}
-\end{lstlisting}
-\screenshotH{ws_3/website_from_load_balancer.png}{Website Accessed via Load Balancer}{web-lb-ws3}
-
-\section{Automation and CI/CD}
-To automate the deployment process, we integrate GitHub Actions with Terraform Cloud. This allows us to automatically provision and manage our infrastructure upon code changes.
-
-\subsection{GitHub Configuration}
-We configure the necessary secrets in our GitHub repository to authenticate with Terraform Cloud.
-\screenshotH{ws_3/repository_secrets.png}{GitHub Repository Secrets}{secrets-ws3}
-
-\subsection{Terraform Cloud Configuration}
-In Terraform Cloud, we define the variables required for our infrastructure, such as AWS credentials and region settings.
-\screenshotH{ws_3/workshop_variables.png}{Terraform Cloud Variables}{vars-ws3}
-
-\subsection{CI/CD Pipeline}
-When code is pushed to the repository, a GitHub Action is triggered. This action communicates with Terraform Cloud to plan and apply the changes.
-\screenshotH{ws_3/github_action.png}{GitHub Action Execution}{action-ws3}
-
-The execution of the plan can be monitored in Terraform Cloud.
-\screenshotH{ws_3/terraform_clould_workshop_3_create.png}{Terraform Cloud Apply Run}{tf-cloud-create-ws3}
-
-Finally, we can also manage the destruction of resources through the pipeline or Terraform Cloud directly.
-\screenshotH{ws_3/github_action_terraform_delete.png}{GitHub Action Destroy Workflow}{action-destroy-ws3}
-\screenshotH{ws_3/terraform_clould_workshop_3_destroy.png}{Terraform Cloud Destroy Run}{tf-cloud-destroy-ws3}
-
-\section{Source Code}
-All workshop files and the complete Terraform configuration can be found in the following GitHub repository:
-\url{https://github.com/SwipSwup/infc_terraform}
+\subsection{Verification}
+Finally, we verify the deployment by accessing the web server from a browser.
+\screenshotH{browser_worker1_website_success.png}{Website Successfully Deployed}{web-success}
 
 \end{document}
