@@ -94,72 +94,269 @@
 
 % ============================================================================
 \chapter{Ansible Workshop}
-In this workshop, we explore the capabilities of Ansible for automation and configuration management. We set up a master node and worker nodes, configure SSH access, and deploy playbooks to manage files and web servers.
+This tutorial guides you step-by-step through setting up an Ansible environment on AWS EC2, configuring SSH trust, running ad-hoc commands, and writing a playbook to deploy a web server.
 
-\section{Installation and Setup}
+\section{Phase 1: Infrastructure Setup (AWS)}
+Instead of manually creating instances via the AWS Console, we use Terraform to automate the provisioning of our infrastructure. This ensures reproducibility and consistency.
 
-\subsection{Installing Ansible}
-First, we install Ansible on the master node. This involves updating the package manager and installing the ansible package.
-\screenshotH{master_install_ansible.png}{Installing Ansible on Master}{install}
+\subsection{Terraform Configuration}
+We define our infrastructure in a \texttt{main.tf} file.
 
-\subsection{SSH Key Generation}
-To allow passwordless authentication between the master and worker nodes, we generate an SSH key pair on the master node.
-\screenshotH{master_ssh_key_generation.png}{Generating SSH Keys}{ssh-gen}
+First, we configure the AWS provider and dynamically fetch the latest Ubuntu 22.04 LTS AMI.
+\begin{lstlisting}[language=bash]
+provider "aws" {
+  region = var.aws_region
+}
 
-\subsection{Distributing Keys}
-The public key is then copied to the worker nodes. This ensures that the master can connect to the workers without manual password entry.
-\screenshotH{worker_save_master_ssh_key.png}{Saving Master Key on Worker}{ssh-copy}
+data "aws_ami" "ubuntu" {
+  most_recent = true
+  owners      = ["099720109477"] # Canonical
+  filter {
+    name = "name"
+    values = [
+      "ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*",
+      "ubuntu/images/hvm-ssd/ubuntu-*-22.04-amd64-server-*"
+    ]
+  }
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+}
+\end{lstlisting}
 
-\subsection{Verifying Connection}
-We verify the SSH connection to the worker nodes to ensure that the setup is correct.
-\screenshotH{master_connection_worker1_succesfull.png}{Connection to Worker 1 Successful}{conn-w1}
-\screenshotH{master_connection_worker2_succesfull.png}{Connection to Worker 2 Successful}{conn-w2}
+Next, we define a security group that allows SSH (22), HTTP (80), and HTTPS (443) traffic from anywhere.
+\begin{lstlisting}[language=bash]
+resource "aws_security_group" "web_sg" {
+  name        = "lab-web-sg"
+  description = "Allow SSH, HTTP, HTTPS"
+  vpc_id      = data.aws_vpc.default.id
 
-\section{Configuration}
+  ingress {
+    description = "SSH"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  # ... (HTTP and HTTPS rules similar to SSH)
+}
+\end{lstlisting}
 
-\subsection{Creating Configuration}
-We create a directory for our Ansible project and generate a default configuration file.
+We then provision 3 EC2 instances using the \texttt{count} parameter. We use the \texttt{t3.micro} instance type and the \texttt{vockey} key pair.
+\begin{lstlisting}[language=bash]
+resource "aws_instance" "ubuntu_lab" {
+  count         = 3
+  ami           = data.aws_ami.ubuntu.id
+  instance_type = "t3.micro"
+  key_name      = "vockey"
+
+  vpc_security_group_ids = [aws_security_group.web_sg.id]
+
+  tags = {
+    Name = "ubuntu-lab-${count.index + 1}"
+  }
+}
+\end{lstlisting}
+
+Finally, we output the public IPs of the created instances to easily connect to them.
+\begin{lstlisting}[language=bash]
+output "instance_public_ips" {
+  description = "Public IPs of the 3 Ubuntu instances"
+  value       = [for i in aws_instance.ubuntu_lab : i.public_ip]
+}
+\end{lstlisting}
+
+\subsection{Execution}
+To apply this configuration, we initialize Terraform and apply the plan.
+\begin{lstlisting}[language=bash]
+terraform init
+terraform apply
+\end{lstlisting}
+After the apply is complete, we receive the public IPs of our 3 instances (Ansible-Master, Worker-1, Worker-2) and can proceed to connect to them.
+
+\section{Phase 2: Enable SSH Trust (Master to Nodes)}
+To allow the Master to SSH into the Workers without a password, we configure SSH trust.
+
+\subsection{Generate Keys on Master}
+On the Master Instance, we generate a new SSH key pair.
+\begin{lstlisting}[language=bash]
+ssh-keygen
+cat ~/.ssh/id_rsa.pub
+\end{lstlisting}
+\screenshotH{master_ssh_key_generation.png}{Generating SSH Keys on Master}{ssh-gen}
+
+\subsection{Distribute Keys to Workers}
+On both Worker-1 and Worker-2, we append the public key from the Master to the \texttt{authorized\_keys} file.
+\begin{lstlisting}[language=bash]
+cat >> ~/.ssh/authorized_keys
+# Paste key here, Enter, Ctrl+D
+\end{lstlisting}
+\screenshotH{worker_save_master_ssh_key.png}{Adding Master Key to Worker}{ssh-copy}
+
+\subsection{Test Connection}
+From the Master, we verify the connection to the workers using their Private IPs.
+\begin{lstlisting}[language=bash]
+ssh ubuntu@<PRIVATE_IP_OF_WORKER_1>
+\end{lstlisting}
+\screenshotH{master_connection_worker1_succesfull.png}{Successful Connection to Worker 1}{conn-w1}
+\screenshotH{master_connection_worker2_succesfull.png}{Successful Connection to Worker 2}{conn-w2}
+
+\section{Phase 3: Install and Configure Ansible}
+These steps are performed on the Master instance only.
+
+\subsection{Install Ansible}
+We update the package list and install Ansible.
+\begin{lstlisting}[language=bash]
+sudo apt update
+sudo apt install ansible -y
+\end{lstlisting}
+\screenshotH{master_install_ansible.png}{Installing Ansible}{install-ansible}
+
+\subsection{Create Workspace and Configuration}
+We create a workspace directory and the \texttt{ansible.cfg} file.
+\begin{lstlisting}[language=bash]
+mkdir ansible-lab
+cd ansible-lab
+nano ansible.cfg
+\end{lstlisting}
+
+The content of \texttt{ansible.cfg}:
+\begin{lstlisting}
+[defaults]
+inventory = hosts
+host_key_checking = False
+\end{lstlisting}
 \screenshotH{master_create_ansible_config.png}{Creating Ansible Config}{create-conf}
+\screenshotH{master_ansible_config.png}{Ansible Configuration Content}{ansible-conf-content}
 
-\subsection{Ansible Config File}
-The \texttt{ansible.cfg} file is customized to define the inventory file location and other defaults.
-\screenshotH{master_ansible_config.png}{Ansible Configuration File}{ansible-conf}
+\subsection{Create Inventory File}
+We create the \texttt{hosts} file to categorize our servers.
+\begin{lstlisting}[language=bash]
+nano hosts
+\end{lstlisting}
 
-\subsection{Hosts Inventory}
-We define our inventory in the \texttt{hosts} file, listing the IP addresses of our worker nodes and grouping them if necessary.
-\screenshotH{master_ansible_hosts_config.png}{Hosts Inventory Configuration}{hosts-conf}
+Initial content of \texttt{hosts}:
+\begin{lstlisting}
+[servers]
+server1 ansible_host=172.31.xx.xx
+server2 ansible_host=172.31.xx.xx
+\end{lstlisting}
+\screenshotH{master_ansible_hosts_config.png}{Hosts Inventory File}{hosts-file}
 
-\subsection{Ping Test}
-We use the \texttt{ansible} command with the \texttt{ping} module to test connectivity to all hosts in our inventory.
-\screenshotH{master_ping_workers.png}{Pinging Workers}{ping}
+\subsection{Verify Setup}
+We check the inventory list and test connectivity using the ping module.
+\begin{lstlisting}[language=bash]
+ansible all --list-hosts
+ansible all -m ping -o
+\end{lstlisting}
+\screenshotH{master_ping_workers.png}{Ping Pong Success}{ping-success}
 
-\section{Playbooks}
+\section{Phase 4: Groups and Ad-Hoc Commands}
 
-\subsection{File Operations}
-We start with a simple playbook to copy a file to the worker nodes.
-\screenshotH{master_create_testfile_copy_to_worker.png}{Creating Copy Playbook}{copy-playbook}
+\subsection{Modify Inventory for Groups}
+We update the \texttt{hosts} file to split the servers into groups.
+\begin{lstlisting}
+[servers1]
+server1 ansible_host=<WORKER_1_PRIVATE_IP>
 
-We run the playbook and observe the output to ensure the task is changed.
-\screenshotH{master_check_for_testfile_copy.png}{Running Copy Playbook}{run-copy}
+[servers2]
+server2 ansible_host=<WORKER_2_PRIVATE_IP>
 
-We verify on the worker node that the file has indeed been copied.
-\screenshotH{worker_after_testfile_copy.png}{File Copied to Worker}{verify-copy}
+[servers:children]
+servers1
+servers2
+\end{lstlisting}
 
-We also create a playbook to delete the file and clean up.
-\screenshotH{master_delete_testfile_on_worker.png}{Deleting File Playbook}{delete-playbook}
+\subsection{Get MAC Addresses}
+We use the setup module to gather facts, including MAC addresses.
+\begin{lstlisting}[language=bash]
+ansible all -m setup
+\end{lstlisting}
 
-\subsection{Webserver Deployment}
-Next, we create a more complex playbook to install and configure a web server (Apache/Nginx) on the workers.
-\screenshotH{master_webserver_config_yaml.png}{Webserver Configuration Playbook}{web-playbook}
+\subsection{Create and Copy File}
+We create a dummy file on the Master and copy it to the \texttt{servers1} group.
+\begin{lstlisting}[language=bash]
+echo "This is a test file" > testfile.txt
+ansible servers1 -m copy -a "src=testfile.txt dest=/home/ubuntu/testfile.txt mode=600"
+\end{lstlisting}
+\screenshotH{master_create_testfile_copy_to_worker.png}{Copy Command Execution}{copy-cmd}
 
-We first deploy this playbook to a single worker to test.
-\screenshotH{master_load_playbook_on_worker1.png}{Deploying to Worker 1}{deploy-w1}
+Now we run it against all servers to compare the output.
+\begin{lstlisting}[language=bash]
+ansible all -m copy -a "src=testfile.txt dest=/home/ubuntu/testfile.txt mode=600"
+\end{lstlisting}
+\screenshotH{master_check_for_testfile_copy.png}{Idempotency Check}{copy-check}
+Server1 shows "SUCCESS" (green) as the file exists, while Server2 shows "CHANGED" (yellow).
 
-Once satisfied, we deploy it to all worker nodes.
-\screenshotH{master_load_playbook_on_all_worker.png}{Deploying to All Workers}{deploy-all}
+We verify the file presence on the worker.
+\screenshotH{worker_after_testfile_copy.png}{File on Worker}{file-on-worker}
 
-\subsection{Verification}
-Finally, we verify the deployment by accessing the web server from a browser.
-\screenshotH{browser_worker1_website_success.png}{Website Successfully Deployed}{web-success}
+Finally, we remove the file.
+\begin{lstlisting}[language=bash]
+ansible all -m file -a "path=/home/ubuntu/testfile.txt state=absent"
+\end{lstlisting}
+\screenshotH{master_delete_testfile_on_worker.png}{Removing File}{remove-file}
+
+\section{Phase 5: Playbooks (The Webserver)}
+
+\subsection{Create Index File}
+We create a custom index file on the Master.
+\begin{lstlisting}[language=bash]
+echo "Hello World from Ansible" > index.html
+\end{lstlisting}
+
+\subsection{Create Playbook}
+We create the \texttt{webserver.yaml} playbook.
+\begin{lstlisting}[language=yaml]
+---
+- hosts: all
+  become: true
+
+  tasks:
+  - name: Install latest version of Apache
+    apt:
+      name: apache2
+      state: latest
+      update_cache: yes
+
+  - name: Replace standard index file in /var/www/html/index.html with custom index.html
+    copy:
+      src: index.html
+      dest: /var/www/html/index.html
+
+  - name: Restart Apache
+    service:
+      name: apache2
+      state: restarted
+    notify: Check HTTP Service
+
+  handlers:
+    - name: Check HTTP Service
+      uri:
+        url: http://{{ ansible_default_ipv4.address }}
+        status_code: 200
+\end{lstlisting}
+\screenshotH{master_webserver_config_yaml.png}{Webserver Playbook}{webserver-playbook}
+
+\subsection{Run Playbook}
+First, we run against Node 1 only using limits.
+\begin{lstlisting}[language=bash]
+ansible-playbook webserver.yaml --limit servers1
+\end{lstlisting}
+\screenshotH{master_load_playbook_on_worker1.png}{Running on Worker 1}{run-w1}
+
+Then, we run against all nodes.
+\begin{lstlisting}[language=bash]
+ansible-playbook webserver.yaml
+\end{lstlisting}
+\screenshotH{master_load_playbook_on_all_worker.png}{Running on All Workers}{run-all}
+
+\subsection{Verify Deployment}
+We verify the deployment by accessing the web server in a browser.
+\screenshotH{browser_worker1_website_success.png}{Browser Verification}{browser-verify}
+
+\section{Phase 6: Submission}
+We have successfully set up the Ansible environment, configured SSH trust, executed ad-hoc commands, and deployed a web server using a playbook. The documentation includes all necessary CLI commands, configuration files, and screenshots verifying the successful execution of each step.
 
 \end{document}
