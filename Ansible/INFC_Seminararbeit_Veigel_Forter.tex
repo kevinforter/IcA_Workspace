@@ -24,7 +24,7 @@
 \emergencystretch=2em         % sanfter Puffer für Zeilenumbruch
 
 % Screenshots hier hinein legen:
-\graphicspath{{screenshots/}}
+\graphicspath{{screenshots/work shop 1/}{screenshots/work shop 2/}}
 
 % --- Bibliography (twbook lädt biblatex via Hook, sobald inputenc geladen ist) ---
 \addbibresource{Literatur.bib}
@@ -80,7 +80,7 @@
 %
 \title{Ansible Workshop Protocol}
 \author{David Veigel \and Kevin Forter}
-\studentnumber{XXXXXXXXXXXXXXX} % ggf. beide Nummern: 12345678, 87654321
+\studentnumber{2310257030, 2500257003} % ggf. beide Nummern: 12345678, 87654321
 \place{Wien}
 % \acknowledgements{\blindtext}
 
@@ -96,7 +96,7 @@
 \chapter{Ansible Workshop}
 This tutorial guides you step-by-step through setting up an Ansible environment on AWS EC2, configuring SSH trust, running ad-hoc commands, and writing a playbook to deploy a web server.
 
-\section{Phase 1: Infrastructure Setup (AWS)}
+\section{Infrastructure Setup (AWS)}
 Instead of manually creating instances via the AWS Console, we use Terraform to automate the provisioning of our infrastructure. This ensures reproducibility and consistency.
 
 \subsection{Terraform Configuration}
@@ -175,7 +175,7 @@ terraform apply
 \end{lstlisting}
 After the apply is complete, we receive the public IPs of our 3 instances (Ansible-Master, Worker-1, Worker-2) and can proceed to connect to them.
 
-\section{Phase 2: Enable SSH Trust (Master to Nodes)}
+\section{Enable SSH Trust (Master to Nodes)}
 To allow the Master to SSH into the Workers without a password, we configure SSH trust.
 
 \subsection{Generate Keys on Master}
@@ -202,7 +202,7 @@ ssh ubuntu@<PRIVATE_IP_OF_WORKER_1>
 \screenshotH{master_connection_worker1_succesfull.png}{Successful Connection to Worker 1}{conn-w1}
 \screenshotH{master_connection_worker2_succesfull.png}{Successful Connection to Worker 2}{conn-w2}
 
-\section{Phase 3: Install and Configure Ansible}
+\section{Install and Configure Ansible}
 These steps are performed on the Master instance only.
 
 \subsection{Install Ansible}
@@ -252,7 +252,7 @@ ansible all -m ping -o
 \end{lstlisting}
 \screenshotH{master_ping_workers.png}{Ping Pong Success}{ping-success}
 
-\section{Phase 4: Groups and Ad-Hoc Commands}
+\section{Groups and Ad-Hoc Commands}
 
 \subsection{Modify Inventory for Groups}
 We update the \texttt{hosts} file to split the servers into groups.
@@ -298,7 +298,7 @@ ansible all -m file -a "path=/home/ubuntu/testfile.txt state=absent"
 \end{lstlisting}
 \screenshotH{master_delete_testfile_on_worker.png}{Removing File}{remove-file}
 
-\section{Phase 5: Playbooks (The Webserver)}
+\section{Playbooks (The Webserver)}
 
 \subsection{Create Index File}
 We create a custom index file on the Master.
@@ -356,7 +356,53 @@ ansible-playbook webserver.yaml
 We verify the deployment by accessing the web server in a browser.
 \screenshotH{browser_worker1_website_success.png}{Browser Verification}{browser-verify}
 
-\section{Phase 6: Submission}
-We have successfully set up the Ansible environment, configured SSH trust, executed ad-hoc commands, and deployed a web server using a playbook. The documentation includes all necessary CLI commands, configuration files, and screenshots verifying the successful execution of each step.
+
+\chapter{Ansible Workshop 2}
+This second workshop builds upon the previous one. We will refactor our existing playbook into roles, add a MySQL role, and implement tests.
+
+\section{Prerequisites Check}
+Detailed checks to ensure the environment is ready.
+
+Login to AWS Academy and switch to the EC2 Dashboard. Make sure your EC2 instances from the first Ansible workshop are online and reachable via SSH.
+On the master, verify connectivity to the nodes:
+
+\screenshotH{ansible_ping_all.png}{Verifying Connectivity}{ping-all-ws2}
+
+\section{Refactor Webserver to a Role}
+We refactor the existing playbook into a reusable role.
+
+First, we create the roles directory and initialize the webserver role:
+\screenshotH{ansible_create_role_webserver.png}{Creating Webserver Role}{create-webserver-role}
+
+We move the tasks to \texttt{roles/webserver/tasks/main.yml}:
+\screenshotH{webserver_task_yaml.png}{Webserver Role Tasks}{webserver-tasks}
+
+The \texttt{index.html} file is moved to \texttt{roles/webserver/files/}.
+
+\section{Create the MySQL Role}
+We create a second role for the database.
+
+Initialize the MySQL role:
+\screenshotH{ansible_create_role_mysql.png}{Creating MySQL Role}{create-mysql-role}
+
+Define tasks in \texttt{roles/mysql/tasks/main.yml}:
+\screenshotH{mysqlserver_task_yaml.png}{MySQL Role Tasks}{mysql-tasks}
+
+\section{Create the Main Playbook}
+We create a master playbook \texttt{site.yaml} to utilize both roles.
+
+\screenshotH{ansible_config_roles_playbook.png}{Site Playbook Configuration}{site-playbook}
+
+\section{Create Tests (TDD)}
+We verify the roles using a test playbook \texttt{test\_infrastructure.yaml}.
+
+\screenshotH{tests_task_yaml.png}{Test Infrastructure Playbook}{test-playbook}
+
+\section{Execution \& Verification}
+Run the main playbook:
+\screenshotH{anible_run_playbook_site_yaml.png}{Running Site Playbook}{run-site}
+
+Run the test playbook:
+\screenshotH{anible_run_playbook_tests_yaml.png}{Running Tests}{run-tests}
 
 \end{document}
