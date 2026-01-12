@@ -1,0 +1,321 @@
+
+%
+% FH Technikum Wien
+% !TEX encoding = UTF-8 Unicode
+%
+% Version V2.24 von 2024-12-19 otrebski
+%
+\documentclass[BMR,Seminar,ngerman,IEEE]{twbook}
+\renewcommand*{\degreecourse}{FH Technikum Wien, Bachelorstudiengang BIF\\Lehrveranstaltung BIF-VZ-5-WS2025-INFC-EN}
+
+% --- Encoding & fonts ---
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+
+% --- Graphics, figures, urls, lists, tables, code ---
+\usepackage{float}
+\usepackage{placeins}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{enumitem}
+\usepackage{listings}
+\usepackage[final]{microtype} % hilft gegen Overfull/Underfull
+\emergencystretch=2em         % sanfter Puffer für Zeilenumbruch
+
+\usepackage{hyperref}
+
+% Screenshots hier hinein legen:
+\graphicspath{{screenshots/}}
+
+% --- Bibliography (twbook lädt biblatex via Hook, sobald inputenc geladen ist) ---
+\addbibresource{Literatur.bib}
+
+% --- Listings (inkl. YAML) ---
+\lstdefinelanguage{yaml}{
+  keywords={true,false,null,y,n},
+  comment=[l]{\#},
+  morestring=[b]',
+  morestring=[b]",
+  sensitive=false,
+  showstringspaces=false,
+  literate =    {---}{{\textcolor{gray}{---}}}3
+                {>}{{\textcolor{gray}{>}}}1
+                {|}{{\textcolor{gray}{|}}}1
+                {:}{{\textcolor{blue}{:}}}1
+                {-}{{\textcolor{gray}{-}}}1,
+}
+\lstset{
+  basicstyle=\ttfamily\small,
+  frame=single,
+  breaklines=true,
+  backgroundcolor=\color{gray!5},
+  captionpos=b
+}
+
+% --- Convenience figure macros ---
+\newcommand{\screenshotH}[3]{%
+  \begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{#1}%
+    \caption{#2}%
+    \label{fig:#3}%
+  \end{figure}%
+}
+\newcommand{\placeholderfig}[2]{%
+  \begin{figure}[htbp]
+    \centering
+    \fbox{\rule{0pt}{120pt}\rule{0.9\linewidth}{0pt}}%
+    \caption{#1}%
+    \label{fig:#2}%
+  \end{figure}%
+}
+
+% Die nachfolgenden Pakete stellen sonst nicht benötigte Features zur Verfügung
+\usepackage{blindtext}
+
+% --- Hyperref am Schluss laden (robuster) ---
+\usepackage{hyperref}
+
+%
+% Einträge für Deckblatt, Kurzfassung, etc.
+%
+\title{IaC Tool}
+\author{David Veigel \and Kevin Forter}
+\studentnumber{2310257030, 2500257003} % ggf. beide Nummern: 12345678, 87654321
+\place{Wien}
+% \acknowledgements{\blindtext}
+
+\begin{document}
+
+\maketitle
+
+% ============================================================================
+\onecolumn
+\newpage
+
+% ============================================================================
+\chapter{Theoretical introduction}
+
+\section{Progress Chef}
+Progress Chef ist eine Plattform zur Automatisierung und Verwaltung von IT-Infrastrukturen.
+Sie ermöglicht es Administratoren und DevOps-Teams, den gewünschten Zustand von Systemen zu definieren und diesen automatisiert durchzusetzen.
+
+Typische Einsatzgebiete von Chef sind:
+\begin{itemize}
+  \item Automatisierte Serverkonfiguration
+  \item Applikationsbereitstellung
+  \item Verwaltung von Systemzuständen
+  \item Vermeidung von Konfigurationsabweichungen
+\end{itemize}
+
+% ----------------------------------------------------------------------------
+\section{Ansatz und Architektur}
+Chef basiert auf dem Infrastructure-as-Code-Prinzip und verwendet ein deklaratives Modell.
+Konfigurationen werden mithilfe einer Ruby-basierten Domain Specific Language (DSL) beschrieben.
+
+Chef kann in zwei Betriebsmodi eingesetzt werden:
+\begin{itemize}
+  \item \textbf{Client--Server-Modus}: Die verwalteten Systeme beziehen ihre Konfigurationen von einem zentralen Chef Server.
+  \item \textbf{Lokaler Modus (Chef Solo)}: Die Konfigurationen werden lokal ohne zentrale Instanz ausgeführt.
+\end{itemize}
+
+Zentrale Bestandteile von Chef sind:
+\begin{itemize}
+  \item \textbf{Cookbooks}: Sammlungen von Konfigurationslogik
+  \item \textbf{Rezepte}: Konkrete Konfigurationsanweisungen
+  \item \textbf{Ressourcen}: Abstraktionen von Systemkomponenten
+  \item \textbf{Chef Client}: Agent zur Anwendung der Konfigurationen
+\end{itemize}
+
+% ----------------------------------------------------------------------------
+\section{Vergleich mit Terraform und Ansible}
+Chef unterscheidet sich deutlich von Terraform und Ansible hinsichtlich seines Einsatzzwecks.
+
+\begin{itemize}
+  \item \textbf{Terraform} wird primär zur Bereitstellung von Infrastrukturressourcen verwendet.
+  \item \textbf{Ansible} eignet sich besonders für Orchestrierung und einfache Konfigurationsaufgaben.
+  \item \textbf{Chef} ist auf langfristige Konfigurationsverwaltung und Skalierbarkeit ausgelegt.
+\end{itemize}
+
+In der Praxis wird Chef häufig in Kombination mit Terraform eingesetzt, wobei Terraform die Infrastruktur erstellt und Chef die anschließende Konfiguration übernimmt.
+
+% ----------------------------------------------------------------------------
+\section{Lizenzmodell}
+Der Chef Infra Client ist als Open-Source-Software unter der Apache-2.0-Lizenz verfügbar.
+Kommerzielle Komponenten wie Chef Infra Server oder Chef Automate werden von Progress Software im Rahmen eines Lizenzmodells angeboten.
+Für kleinere Umgebungen existiert ein kostenfreies Nutzungskontingent.
+
+% ----------------------------------------------------------------------------
+\section{Server Virtualization, Support and Performance}
+\begin{itemize}[noitemsep]
+  \item Speziell für \textbf{Server-Virtualisierung} konzipiert.
+  \item Unterstützt sowohl \textbf{Windows}- als auch \textbf{Linux}-Gastsysteme.
+  \item Ressourcenlimits abhängig von der Hardware:
+  \begin{itemize}
+    \item Bis zu \textbf{288 CPUs} pro Host
+    \item Bis zu \textbf{5\,TB RAM} pro Host
+    \item Pro VM: typischerweise bis zu \textbf{32 vCPUs} und \textbf{128\,GB+ RAM} (konfigurierbar)
+  \end{itemize}
+  \item Clusterverwaltung über \textbf{Xen Orchestra} oder \textbf{XCP-ng Center}.
+\end{itemize}
+
+% ----------------------------------------------------------------------------
+\section{Integration mit anderen Werkzeugen}
+Chef lässt sich in zahlreiche bestehende Systeme integrieren, darunter:
+\begin{itemize}
+  \item Cloud-Plattformen wie AWS, Microsoft Azure und Google Cloud
+  \item Container-Technologien wie Docker und Kubernetes
+  \item CI/CD-Werkzeuge wie Jenkins oder GitHub Actions
+  \item Infrastruktur-Tools wie Terraform
+\end{itemize}
+% ============================================================================
+
+\chapter{Praktische Umsetzung mit Chef Infra Client}
+
+Ziel des praktischen Teils war es, die in den Terraform- und Ansible-Workshops definierten Ziele
+mithilfe des Chef Infra Clients nachzubilden.
+Da Chef kein Infrastruktur-Provisionierungswerkzeug ist, wurde die zugrundeliegende Infrastruktur
+vorab über die AWS Academy bereitgestellt.
+Chef übernahm anschließend die Konfigurationsverwaltung, Server-Provisionierung und Automatisierung.
+
+\section{Voraussetzungen und Setup}
+
+Für die praktische Umsetzung wurden folgende Voraussetzungen geschaffen:
+
+\begin{itemize}
+  \item AWS Academy Account mit Zugriff auf EC2
+  \item Ubuntu Linux EC2-Instanzen (t2.micro)
+  \item Öffentliche Sicherheitsgruppe mit Zugriff auf Port 22 (SSH) und Port 80 (HTTP)
+  \item Installation des Chef Infra Clients auf allen Zielsystemen
+\end{itemize}
+
+\placeholderfig{AWS EC2 Dashboard mit laufenden Instanzen}{aws-ec2}
+
+\section{Nachbildung von Terraform Workshop 1}
+
+Im ersten Terraform-Workshop wurde eine EC2-Instanz mit Apache-Webserver bereitgestellt.
+Diese Funktionalität wurde mithilfe des Chef Infra Clients nachgebildet, indem eine bestehende
+EC2-Instanz konfiguriert wurde.
+
+Hierzu wurde ein eigenes Cookbook erstellt, welches die Installation und Konfiguration des Apache-Webservers automatisiert.
+
+\begin{lstlisting}[language=Ruby, caption={Chef-Rezept zur Installation und Konfiguration von Apache}]
+package 'apache2'
+
+service 'apache2' do
+  action [:enable, :start]
+end
+
+file '/var/www/html/index.html' do
+  content '<h1>Hello World</h1>'
+  mode '0644'
+end
+\end{lstlisting}
+
+Die Ausführung des Chef Clients erfolgte im lokalen Modus:
+
+\begin{lstlisting}[language=bash]
+chef-client --local-mode --runlist 'recipe[apache]'
+\end{lstlisting}
+
+\placeholderfig{Ausführung des Chef Infra Clients zur Apache-Installation}{chef-apache-run}
+
+Anschließend wurde die Erreichbarkeit des Webservers über den Browser überprüft.
+
+\placeholderfig{Erreichbarkeit des Apache-Webservers über die öffentliche IP-Adresse}{apache-browser}
+
+\section{Nachbildung von Terraform Workshop 2}
+
+Der zweite Terraform-Workshop erweiterte die Infrastruktur um benutzerdefinierte Netzwerkkomponenten
+wie VPCs, Subnetze und Elastic IPs.
+Diese Komponenten liegen außerhalb des Verantwortungsbereichs von Chef und wurden daher
+vorab über die AWS Academy konfiguriert.
+
+Chef wurde anschließend eingesetzt, um die Konfiguration der bereitgestellten Instanzen
+automatisiert und reproduzierbar umzusetzen.
+Das gleiche Cookbook wie im ersten Workshop konnte unverändert wiederverwendet werden,
+was die Wiederverwendbarkeit und Idempotenz von Chef unterstreicht.
+
+\placeholderfig{Vorkonfigurierte Netzwerkstruktur in AWS}{aws-network}
+
+\section{Nachbildung von Terraform Workshop 3}
+
+Im dritten Terraform-Workshop wurde die Skalierung auf mehrere Instanzen sowie der Einsatz
+eines Load Balancers thematisiert.
+Zur Nachbildung dieser Funktionalität wurden mehrere EC2-Instanzen erstellt und identisch
+mit Chef konfiguriert.
+
+Eine zusätzliche Instanz fungierte als Reverse Proxy.
+Chef installierte und konfigurierte dort einen NGINX-Webserver, welcher die Anfragen
+auf die Backend-Instanzen verteilte.
+
+\begin{lstlisting}[language=Ruby, caption={Chef-Rezept zur Konfiguration eines NGINX Load Balancers}]
+package 'nginx'
+
+file '/etc/nginx/sites-enabled/default' do
+  content <<~EOF
+  upstream backend {
+      server 10.0.0.10;
+      server 10.0.0.11;
+  }
+
+  server {
+      listen 80;
+      location / {
+          proxy_pass http://backend;
+      }
+  }
+  EOF
+  notifies :restart, 'service[nginx]'
+end
+
+service 'nginx' do
+  action [:enable, :start]
+end
+\end{lstlisting}
+
+\placeholderfig{NGINX Load Balancer Konfiguration auf der Proxy-Instanz}{nginx-lb}
+
+Die öffentliche IP-Adresse des Load Balancers wurde anschließend verwendet, um den Zugriff
+auf die dahinterliegenden Webserver zu testen.
+
+\section{Nachbildung der Ansible Workshops}
+
+Die in den Ansible-Workshops vermittelten Konzepte zur Konfigurationsverwaltung und
+Mehrknoten-Administration konnten nahezu vollständig mit Chef nachgebildet werden.
+
+Mehrere EC2-Instanzen wurden mit dem Chef Infra Client ausgestattet und mit identischen
+Cookbooks konfiguriert.
+Chef ersetzte hierbei die Ansible-Playbooks durch deklarative Rezepte und Cookbooks.
+
+Zusätzlich wurden separate Cookbooks für Apache und MySQL erstellt, um eine einfache
+LAMP-ähnliche Umgebung bereitzustellen.
+
+\begin{lstlisting}[language=Ruby, caption={Chef-Rezept zur Installation von MySQL}]
+package 'mysql-server'
+
+service 'mysql' do
+  action [:enable, :start]
+end
+\end{lstlisting}
+
+\placeholderfig{Automatisierte Installation von MySQL mit Chef}{chef-mysql}
+
+\section{Automatisierung und Wiederholbarkeit}
+
+Die Cookbooks wurden in einem Git-Repository versioniert.
+Über eine manuell gestartete CI/CD-Pipeline konnten Chef-Runs automatisiert ausgelöst werden.
+Dieses Vorgehen ersetzt funktional die in den Terraform-Workshops verwendeten manuellen Workflows.
+
+\placeholderfig{Manuell gestarteter GitHub-Workflow zur Ausführung von Chef}{github-actions}
+
+\section{Zusammenfassung der praktischen Ergebnisse}
+
+Die praktische Umsetzung zeigte, dass Chef Infra Client in der Lage ist,
+die Konfigurations- und Automatisierungsziele der Terraform- und Ansible-Workshops zu erfüllen.
+Während die Erstellung von Infrastruktur weiterhin außerhalb des Funktionsumfangs liegt,
+ermöglicht Chef eine konsistente, skalierbare und wiederholbare Systemkonfiguration.
+
+\end{document}
